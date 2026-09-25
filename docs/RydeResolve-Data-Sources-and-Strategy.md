@@ -1,6 +1,6 @@
 # RydeResolve — Data Sources & Generation Strategy (v2 — finalized)
 
-**Status note, stated plainly:** this discussion happened earlier but was never committed to a file — the conversation converged on four sourcing decisions and a generation pipeline, then moved on before it got written up. v1 was that write-up, updated for the finalized agentic flow (system design doc §6) and the real Ryde figures gathered since (`RydeResolve-Real-Source-Reference.md`). This v2 closes the one real inconsistency v1 flagged and left open: the Policy & Prevention Rules doc's Part 1 has now been reconciled to the same real figures this document already used, so the `policy_chunks` corpus and the generated dataset agree with each other. Nothing else in this document has changed in substance.
+**Status note, stated plainly:** this discussion happened earlier but was never committed to a file — the conversation converged on four sourcing decisions and a generation pipeline, then moved on before it got written up. v1 was that write-up, updated for the finalized agentic flow (system design doc §6) and the real Ryde figures gathered since (`RydeResolve-Real-Source-Reference.md`). This v2 closes the one real inconsistency v1 flagged and left open: the Policy & Prevention Rules doc's Part 1 has now been reconciled to the same real figures this document already used, so the `policy_chunks` corpus and the generated dataset agree with each other. Nothing else in this document has changed in substance. **Post-v2 patch:** the evidence-photo storage backend in §1's inventory table now reads Neon Object Storage rather than Cloudflare R2, following the system design doc's swap (§9) — a naming update only, no change to this document's sourcing decisions or pipeline.
 
 ---
 
@@ -20,7 +20,7 @@ This covers: which data points the finalized architecture actually needs (per sy
 | Traffic events (closures, incidents) | Route Deviation "justified deviation" exceptions | **New:** `traffic_events` |
 | User / account records | Identifies complainer vs. complainee; anchors `behavior_profiles` | **New:** `users` |
 | Historical behavior profiles | Evidence Collection Agent; Judge; Prevention Rule 5 (velocity/repeat-filer) | Already exists — `behavior_profiles` (system design §5) |
-| Evidence photos | Property Damage claims; the advocates' Image Analysis tool | Already exists — `evidence` (metadata) + Cloudflare R2 (bytes) |
+| Evidence photos | Property Damage claims; the advocates' Image Analysis tool | Already exists — `evidence` (metadata) + Neon Object Storage (bytes) |
 | Policy corpus | Policy RAG tool (advocates + Judge) | Already exists — `policy_chunks`; content is the Policy doc's Part 1 |
 | Golden cases | Golden-case suite, dashboard pass-rate | Already exists — `golden_cases` |
 

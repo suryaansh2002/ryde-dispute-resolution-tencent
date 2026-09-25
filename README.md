@@ -10,7 +10,7 @@ A claim flows through five `pydantic-ai` agents, wired together by deterministic
 
 1. **Triage Agent** — categorizes the claim and flags safety incidents.
 2. **Prevention rules** (deterministic) — duplicate/malformed/safety/evidence/velocity/claim-window checks; can hard-stop a case before any further reasoning.
-3. **Evidence Collection Agent** — assembles one canonical `CaseFile` (chat logs, photos, GPS/telemetry, payment data, behavior profiles) from Postgres and R2, with an output validator confirming every reference is real.
+3. **Evidence Collection Agent** — assembles one canonical `CaseFile` (chat logs, photos, GPS/telemetry, payment data, behavior profiles) from Postgres and Neon Object Storage, with an output validator confirming every reference is real.
 4. **Rider Advocate & Driver Advocate** (parallel) — each builds and cites its side's case against the identical `CaseFile`.
 5. **Judge** — weighs both arguments and produces a `DecisionObject` with a confidence score.
 
@@ -20,8 +20,8 @@ That decision passes a two-phase deterministic escalation gate (confidence thres
 
 - **Frontend:** React (Vite) + TypeScript, static bundle on Vercel — rider panel, driver panel, live system trace panel, and an L2 console, all driven by one shared SSE stream per case.
 - **Backend:** Python + FastAPI on Render — one service owning orchestration, deterministic rules, and all five agents.
-- **Agents:** built on `pydantic-ai`, model calls via Groq, fully instrumented with Pydantic Logfire (auto-captured spans for every agent run and tool call).
-- **Data:** Postgres + pgvector (Neon) for structured data and policy-clause retrieval; Cloudflare R2 for evidence photos/audio and decision-document exports.
+- **Agents:** built on `pydantic-ai` (model: `groq:qwen/qwen3.8-27b`), model calls via Groq, fully instrumented with Pydantic Logfire (auto-captured spans for every agent run and tool call).
+- **Data:** Postgres + pgvector (Neon) for structured data and policy-clause retrieval; Neon Object Storage — same Neon project/branch, an S3-compatible bucket (`ryde-resolve`) — for evidence photos/audio and decision-document exports.
 - **Transport:** REST for request/response actions, Server-Sent Events for everything live (trace updates, status changes, new-case alerts).
 
 Full diagrams and rationale live in [`docs/RydeResolve-System-Design.md`](docs/RydeResolve-System-Design.md).
@@ -36,7 +36,7 @@ Full diagrams and rationale live in [`docs/RydeResolve-System-Design.md`](docs/R
 
 ## Deployment (all free tier)
 
-Vercel (frontend) + Render (backend) + Neon (Postgres/pgvector) + Cloudflare R2 (evidence storage) + Pydantic Logfire (observability), targeting effectively-zero-cost hosting reachable by hackathon judges.
+Vercel (frontend) + Render (backend) + Neon (Postgres/pgvector + Object Storage, one project) + Pydantic Logfire (observability), targeting effectively-zero-cost hosting reachable by hackathon judges. Neon covers both the database and evidence object storage, so there's no separate object-storage provider (previously Cloudflare R2) to run.
 
 ## Status
 
