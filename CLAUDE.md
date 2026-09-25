@@ -4,9 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-This repository currently contains **only design documents** — no application code exists yet. Everything under `docs/` is the specification the implementation must be built against. There are no build/lint/test commands to run because there is nothing to build yet; when code is added, update this file with the actual commands.
+This is a monorepo. Folder structure is scaffolded (empty directories + a README per major folder); **no application code exists yet** beyond that skeleton. There are no build/lint/test commands to run yet — when real code/dependencies are added to `frontend/` or `backend/`, update this file with the actual commands.
 
-Read the docs in this order before writing any code:
+```text
+frontend/    React (Vite) + TypeScript client — see frontend/README.md
+backend/     Python + FastAPI service, incl. backend/data_generation/ — see backend/README.md
+docs/        the specification (read order below) — implementation must be built against this
+sources/     raw research/reference material backing docs/ figures — see sources/README.md
+neon-infra/  Neon CLI tooling (neon.ts, .neon link file) that provisions Postgres + object storage — see neon-infra/README.md, especially its .env-targeting caveat
+```
+
+Everything under `docs/` is the specification the implementation must be built against. Read the docs in this order before writing any code:
 
 1. [`docs/RydeResolve-System-Design.md`](docs/RydeResolve-System-Design.md) — architecture, agent roster, API surface, DB schema, escalation logic. This is the primary spec.
 2. [`docs/RydeResolve-Policy-and-Prevention-Rules.md`](docs/RydeResolve-Policy-and-Prevention-Rules.md) — the actual policy corpus (for `policy_chunks`/RAG) and the six deterministic Prevention Rules.
@@ -23,15 +31,15 @@ RydeResolve is a multi-agent dispute-resolution system for a ride-hailing platfo
 
 - **Frontend:** React (Vite) + TypeScript, static bundle on Vercel. One app with persona-scoped routes (rider, driver, trace, L2 console), not four separate apps — all driven by one shared SSE stream keyed on `case_id`.
 - **Backend:** Python + FastAPI on Render. A single service owning orchestration (state machine), deterministic rules, and all agent calls behind one REST+SSE API surface.
-- **Agents:** five `pydantic-ai` agents (`Triage`, `Evidence Collection`, `Rider Advocate`, `Driver Advocate`, `Judge`), model calls via Groq, instrumented end-to-end with Pydantic Logfire (`logfire.instrument_pydantic_ai()` — no per-agent logging code needed).
-- **Data:** Postgres + pgvector (Neon) for structured data, `behavior_profiles`, `trace_events`, and policy-clause retrieval; Cloudflare R2 for evidence photos/audio and decision-document exports.
+- **Agents:** five `pydantic-ai` agents (`Triage`, `Evidence Collection`, `Rider Advocate`, `Driver Advocate`, `Judge`), model string `groq:qwen/qwen3.8-27b` (Groq's currently supported Qwen chat model — 131K context, tool use + JSON mode), instrumented end-to-end with Pydantic Logfire (`logfire.instrument_pydantic_ai()` — no per-agent logging code needed).
+- **Data:** Postgres + pgvector (Neon) for structured data, `behavior_profiles`, `trace_events`, and policy-clause retrieval; Neon Object Storage (same Neon project/branch, S3-compatible `ryde-resolve` bucket — `neon.ts`) for evidence photos/audio and decision-document exports. Postgres and evidence object storage are both Neon now, sharing one branch lifecycle — no separate object-storage provider (previously Cloudflare R2).
 - **Transport:** REST for request/response actions; Server-Sent Events for everything live (trace updates, status changes, new-case alerts) — deliberately not WebSockets, since every server→client push is one-directional.
 
 ### The pipeline (deterministic orchestrator code wires agents together — agents never call each other)
 
 ```text
 claim filed → Triage Agent → Prevention rules (deterministic gate)
-  → Evidence Collection Agent (assembles CaseFile from Postgres/R2)
+  → Evidence Collection Agent (assembles CaseFile from Postgres/Neon Object Storage)
   → Rider Advocate + Driver Advocate (parallel, identical CaseFile)
   → Judge (produces DecisionObject with confidence)
   → two-phase escalation gate (confidence threshold OR risk-bucket, deterministic)
@@ -43,7 +51,7 @@ Anything safety-flagged (at Triage) or that fails the escalation gate goes to th
 
 Key architectural rules that must not be violated when implementing:
 
-- **Evidence Collection Agent is the only agent with direct Postgres/R2 access.** Advocates get a narrower Evidence Lookup tool scoped to the already-assembled `CaseFile`, not raw DB access.
+- **Evidence Collection Agent is the only agent with direct Postgres/Neon Object Storage access.** Advocates get a narrower Evidence Lookup tool scoped to the already-assembled `CaseFile`, not raw DB access.
 - **The Judge never receives raw feeds or the original complaint text** — only the `CaseFile` and both advocates' `Argument`s. Its tools (Policy RAG, Prevention-Rule Bucket lookup, Escalate-to-L2) are narrow and read-only.
 - **Every factual assertion an agent makes must resolve to a real evidence ID** or an actual tool call made that run — enforced via `pydantic-ai` output validators on `Argument` and `CaseFile`, not a regex pass. Unsupported claims get stripped and the case flagged.
 - **Escalation is two independent deterministic checks, either one triggers L2**: a confidence threshold on `DecisionObject.confidence`, and a fixed category/risk-bucket classification — this runs unconditionally on every case regardless of whether the Judge's own `escalate_to_l2` tool fired. Never let a tool call substitute for the gate.
@@ -72,7 +80,7 @@ Both panels/schemas are already designed to be server-driven and data-shaped so 
 
 Two developers, split along the `CaseFile` seam — each owns a full-stack vertical slice (backend logic + its schema/data + its frontend surface), not one dev on backend and the other on frontend/data/infra. See [`docs/RydeResolve-Development-Roadmap.md`](docs/RydeResolve-Development-Roadmap.md) §0 for the full breakdown.
 
-- **Dev A — Intake & Evidence:** Triage Agent, Prevention Rules, Evidence Collection Agent + tools, `trips`/`payments`/`chat_messages`/`traffic_events` schema, synthetic data pipeline, Rider/Driver panels' claim-filing and evidence-upload flows, R2 upload wiring.
+- **Dev A — Intake & Evidence:** Triage Agent, Prevention Rules, Evidence Collection Agent + tools, `trips`/`payments`/`chat_messages`/`traffic_events` schema, synthetic data pipeline, Rider/Driver panels' claim-filing and evidence-upload flows, Neon Object Storage upload wiring.
 - **Dev B — Adjudication & Delivery:** Advocates + Judge agents + tools, escalation gate, compliance check, decision-document rendering, `policy_chunks`/Policy RAG, golden-case suite, Trace panel + SSE broadcaster, L2 console, Logfire, deployment/infra.
 - **Shared:** orchestrator/state-machine skeleton, the locked API/schema contract, CodeBuddy/WorkBuddy proof capture, demo video, submission checklist.
 
