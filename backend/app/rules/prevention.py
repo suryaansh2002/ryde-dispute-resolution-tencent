@@ -95,10 +95,8 @@ def run_prevention_rules(ctx: PreventionContext) -> PreventionOutcome:
     if ctx.trip_completed_at is not None:
         age = ctx.now - ctx.trip_completed_at
         if age > timedelta(days=CLAIM_WINDOW_DAYS):
-            return PreventionOutcome(
-                action=PreventionAction.DECLINED_STALE,
-                detail=f"filed {age.days}d after trip completion, exceeds the {CLAIM_WINDOW_DAYS}-day window",
-            )
+            detail = f"filed {age.days}d after completion (window: {CLAIM_WINDOW_DAYS}d)"
+            return PreventionOutcome(action=PreventionAction.DECLINED_STALE, detail=detail)
 
     # Rule 4 — evidence-presence gate.
     if ctx.category in CATEGORIES_REQUIRING_EVIDENCE_AT_FILING and not ctx.has_required_evidence:
