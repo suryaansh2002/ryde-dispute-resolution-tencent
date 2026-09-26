@@ -1,8 +1,14 @@
 from pathlib import Path
 
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT_ENV = Path(__file__).resolve().parents[2] / ".env"
+
+# Third-party libs (pydantic-ai's GroqProvider, boto3, logfire) read straight from
+# os.environ rather than through our Settings object below — load the same root .env
+# into the real environment so both agree on one source of truth.
+load_dotenv(REPO_ROOT_ENV)
 
 
 class Settings(BaseSettings):
