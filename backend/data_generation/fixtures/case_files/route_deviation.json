@@ -1,0 +1,61 @@
+{
+  "case_id": "CASE-0001",
+  "trip_id": "TRIP-0001",
+  "category": "route_deviation",
+  "complainer_role": "rider",
+  "complainer_id": "USER-0001",
+  "complainee_id": "USER-0002",
+  "chat_log": [
+    {
+      "id": "MSG-0001",
+      "sender_role": "rider",
+      "timestamp": "2026-09-10T08:12:00Z",
+      "text": "Why did we go through downtown? That's way out of the way."
+    },
+    {
+      "id": "MSG-0002",
+      "sender_role": "driver",
+      "timestamp": "2026-09-10T08:13:00Z",
+      "text": "Sorry, the app rerouted me, traffic looked bad on the highway."
+    }
+  ],
+  "gps_trace": [
+    { "lat": 1.3521, "lng": 103.8198, "t": "2026-09-10T08:00:00Z" },
+    { "lat": 1.3601, "lng": 103.8318, "t": "2026-09-10T08:10:00Z" },
+    { "lat": 1.3721, "lng": 103.8468, "t": "2026-09-10T08:22:00Z" }
+  ],
+  "optimal_route_geometry": { "type": "LineString", "coordinates": [[103.8198, 1.3521], [103.8468, 1.3721]] },
+  "actual_route_geometry": { "type": "LineString", "coordinates": [[103.8198, 1.3521], [103.8318, 1.3601], [103.8468, 1.3721]] },
+  "payment": {
+    "base_fare": 14.50,
+    "platform_fee": 1.25,
+    "taxes": 1.10,
+    "total_fare": 16.85,
+    "add_on_fees": []
+  },
+  "photos": [],
+  "traffic_events": [],
+  "complainer_profile": {
+    "user_id": "USER-0001",
+    "role": "rider",
+    "dispute_count_30d": 0,
+    "upheld_denied_ratio": null,
+    "rating_trend": 0.02,
+    "account_age_days": 420
+  },
+  "complainee_profile": {
+    "user_id": "USER-0002",
+    "role": "driver",
+    "dispute_count_30d": 1,
+    "upheld_denied_ratio": 0.5,
+    "rating_trend": -0.01,
+    "account_age_days": 730
+  },
+  "policy_tags": [
+    {
+      "chunk_id": "POLICY-CHUNK-0002",
+      "policy_id": "POL-02",
+      "excerpt": "10%-25% extra distance: partial merit - refund the fare difference attributable to the extra distance/time, unless justified."
+    }
+  ]
+}
