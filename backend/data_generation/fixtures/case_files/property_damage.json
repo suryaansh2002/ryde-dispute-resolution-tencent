@@ -1,0 +1,67 @@
+{
+  "case_id": "CASE-0003",
+  "trip_id": "TRIP-0003",
+  "category": "property_damage",
+  "complainer_role": "driver",
+  "complainer_id": "USER-0005",
+  "complainee_id": "USER-0006",
+  "chat_log": [
+    {
+      "id": "MSG-0005",
+      "sender_role": "driver",
+      "timestamp": "2026-09-12T20:45:00Z",
+      "text": "You spilled a drink all over the back seat, I'm filing a cleaning fee claim."
+    },
+    {
+      "id": "MSG-0006",
+      "sender_role": "rider",
+      "timestamp": "2026-09-12T20:47:00Z",
+      "text": "That was already there before I got in."
+    }
+  ],
+  "gps_trace": [
+    { "lat": 1.2900, "lng": 103.8500, "t": "2026-09-12T20:20:00Z" },
+    { "lat": 1.2950, "lng": 103.8550, "t": "2026-09-12T20:40:00Z" }
+  ],
+  "optimal_route_geometry": null,
+  "actual_route_geometry": null,
+  "payment": {
+    "base_fare": 9.80,
+    "platform_fee": 1.25,
+    "taxes": 0.75,
+    "total_fare": 11.80,
+    "add_on_fees": []
+  },
+  "photos": [
+    {
+      "evidence_id": "EV-0001",
+      "r2_object_key": "evidence/CASE-0003/spill-1.jpg",
+      "hash": "sha256:9f8c3a1b2d4e5f60718293a4b5c6d7e8f9012345678901234567890abcdef01",
+      "submitted_at": "2026-09-12T21:00:00Z"
+    }
+  ],
+  "traffic_events": [],
+  "complainer_profile": {
+    "user_id": "USER-0005",
+    "role": "driver",
+    "dispute_count_30d": 0,
+    "upheld_denied_ratio": null,
+    "rating_trend": 0.01,
+    "account_age_days": 600
+  },
+  "complainee_profile": {
+    "user_id": "USER-0006",
+    "role": "rider",
+    "dispute_count_30d": 0,
+    "upheld_denied_ratio": null,
+    "rating_trend": 0.0,
+    "account_age_days": 200
+  },
+  "policy_tags": [
+    {
+      "chunk_id": "POLICY-CHUNK-0004",
+      "policy_id": "POL-04",
+      "excerpt": "Minor: food/drink spillage or crumbs - fee up to $40."
+    }
+  ]
+}

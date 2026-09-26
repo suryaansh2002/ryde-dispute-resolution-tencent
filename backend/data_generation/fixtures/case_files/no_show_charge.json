@@ -1,0 +1,60 @@
+{
+  "case_id": "CASE-0002",
+  "trip_id": "TRIP-0002",
+  "category": "no_show_charge",
+  "complainer_role": "rider",
+  "complainer_id": "USER-0003",
+  "complainee_id": "USER-0004",
+  "chat_log": [
+    {
+      "id": "MSG-0003",
+      "sender_role": "driver",
+      "timestamp": "2026-09-11T09:00:00Z",
+      "text": "I'm here"
+    },
+    {
+      "id": "MSG-0004",
+      "sender_role": "rider",
+      "timestamp": "2026-09-11T09:06:00Z",
+      "text": "I don't see you anywhere, I've been waiting outside for 6 minutes"
+    }
+  ],
+  "gps_trace": [
+    { "lat": 1.3000, "lng": 103.8000, "t": "2026-09-11T08:58:00Z" },
+    { "lat": 1.3050, "lng": 103.8050, "t": "2026-09-11T09:04:00Z" }
+  ],
+  "optimal_route_geometry": null,
+  "actual_route_geometry": null,
+  "payment": {
+    "base_fare": 0.0,
+    "platform_fee": 0.0,
+    "taxes": 0.0,
+    "total_fare": 4.50,
+    "add_on_fees": [{ "type": "no_show_fee", "amount": 4.50 }]
+  },
+  "photos": [],
+  "traffic_events": [],
+  "complainer_profile": {
+    "user_id": "USER-0003",
+    "role": "rider",
+    "dispute_count_30d": 3,
+    "upheld_denied_ratio": 0.33,
+    "rating_trend": -0.05,
+    "account_age_days": 90
+  },
+  "complainee_profile": {
+    "user_id": "USER-0004",
+    "role": "driver",
+    "dispute_count_30d": 0,
+    "upheld_denied_ratio": null,
+    "rating_trend": 0.0,
+    "account_age_days": 500
+  },
+  "policy_tags": [
+    {
+      "chunk_id": "POLICY-CHUNK-0003",
+      "policy_id": "POL-03",
+      "excerpt": "Driver no-show (rider's claim): a cancellation fee is waived, and any fare charged is refunded in full, if the driver did not come within 100 meters of the pickup GPS coordinates."
+    }
+  ]
+}
