@@ -14,4 +14,17 @@ Python + FastAPI, single service on Render owning orchestration, deterministic r
 - `tests/`
 - `data_generation/` — the synthetic dataset generation pipeline (see its own README)
 
-Local dev runs against a local Postgres with pgvector via `docker-compose`, same image as prod (System Design §9).
+Local dev runs against a local Postgres with pgvector via `docker-compose`, same image as prod (System Design §9). **For now** (solo build, no docker-compose set up yet), dev runs directly against the Neon dev branch declared in `neon-infra/` — `DATABASE_URL` in the repo-root `.env` already points there.
+
+## Running locally
+
+Uses [`uv`](https://docs.astral.sh/uv/) for dependency management — everything below runs from `backend/`.
+
+```bash
+uv sync                              # install deps (already done once)
+uv run pytest                        # run tests
+uv run ruff check .                  # lint
+uv run uvicorn app.main:app --reload # dev server, http://localhost:8000/health
+```
+
+Apply `migrations/0001_init.sql` against the Neon branch with `psql "$DATABASE_URL" -f migrations/0001_init.sql` (or via the `neon-postgres` skill/CLI) before running anything that touches the DB.

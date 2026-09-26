@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-This is a monorepo. Folder structure is scaffolded (empty directories + a README per major folder); **no application code exists yet** beyond that skeleton. There are no build/lint/test commands to run yet — when real code/dependencies are added to `frontend/` or `backend/`, update this file with the actual commands.
+This is a monorepo. `backend/` has a real `uv`-managed Python project now (FastAPI skeleton, locked `app/schemas/`, `app/rules/prevention.py` with unit tests, `migrations/0001_init.sql`) — see `backend/README.md` for run commands. `frontend/` is still an empty scaffold. Building sequentially: Triage → Prevention Rules (done) → Evidence Collection Agent → Advocates/Judge → frontend/SSE → data pipeline/deployment — see "Team split" below for why.
+
+Backend commands (run from `backend/`): `uv sync`, `uv run pytest`, `uv run ruff check .`, `uv run uvicorn app.main:app --reload`.
 
 ```text
 frontend/    React (Vite) + TypeScript client — see frontend/README.md
@@ -78,14 +80,17 @@ Both panels/schemas are already designed to be server-driven and data-shaped so 
 
 ## Team split
 
-Two developers, split along the `CaseFile` seam — each owns a full-stack vertical slice (backend logic + its schema/data + its frontend surface), not one dev on backend and the other on frontend/data/infra. See [`docs/RydeResolve-Development-Roadmap.md`](docs/RydeResolve-Development-Roadmap.md) §0 for the full breakdown.
+**Currently solo** (one developer + Claude Code), not the two-developer parallel setup the roadmap doc still describes on paper. The Dev A / Dev B labels below are kept as a way of naming *slices of work*, not two people — build them **sequentially**, Dev A slice first, since Dev B's Advocates/Judge need Dev A's `CaseFile` to exist for real before they can be built against anything but a hand-built fixture.
 
-- **Dev A — Intake & Evidence:** Triage Agent, Prevention Rules, Evidence Collection Agent + tools, `trips`/`payments`/`chat_messages`/`traffic_events` schema, synthetic data pipeline, Rider/Driver panels' claim-filing and evidence-upload flows, Neon Object Storage upload wiring.
-- **Dev B — Adjudication & Delivery:** Advocates + Judge agents + tools, escalation gate, compliance check, decision-document rendering, `policy_chunks`/Policy RAG, golden-case suite, Trace panel + SSE broadcaster, L2 console, Logfire, deployment/infra.
-- **Shared:** orchestrator/state-machine skeleton, the locked API/schema contract, CodeBuddy/WorkBuddy proof capture, demo video, submission checklist.
+- **Dev A slice — Intake & Evidence** *(build this first)*: Triage Agent, Prevention Rules (done), Evidence Collection Agent + tools, `trips`/`payments`/`chat_messages`/`traffic_events` schema (done — `migrations/0001_init.sql`), synthetic data pipeline, Rider/Driver panels' claim-filing and evidence-upload flows, Neon Object Storage upload wiring.
+- **Dev B slice — Adjudication & Delivery** *(build after Dev A's CaseFile is real)*: Advocates + Judge agents + tools, escalation gate, compliance check, decision-document rendering, `policy_chunks`/Policy RAG, golden-case suite, Trace panel + SSE broadcaster, L2 console, Logfire, deployment/infra.
+- **Shared:** orchestrator/state-machine skeleton, the locked API/schema contract (done — `app/schemas/`), CodeBuddy/WorkBuddy proof capture, demo video, submission checklist.
 
-Because Dev B's Advocates/Judge need Dev A's `CaseFile` and Dev A's panels need Dev B's `DecisionObject`/trace events, the roadmap uses a **contract-first + fixtures** approach (roadmap §0a) rather than sequential handoff: schemas lock Day 1, hand-built fixtures get exchanged Day 2, both halves are built in parallel against those fixtures, and real wiring replaces the fixtures at the Day 5 integration gate. When implementing either half, check whether a fixture already exists before assuming the other dev's real component must be done first.
+If a second developer joins later, the roadmap's original **contract-first + fixtures** approach (roadmap §0a) — schemas lock Day 1, hand-built fixtures exchanged Day 2, both halves built in parallel against those fixtures — is still the right model to switch back to; it just isn't needed while solo.
 
 ## Mandatory hackathon constraint
 
-The project must be built using CodeBuddy or WorkBuddy with proof captured continuously (screenshots/API logs) — this is a hard submission gate per the hackathon handbook, not optional tooling preference (System Design §8).
+The project must be built using CodeBuddy or WorkBuddy with proof captured continuously (screenshots/API logs) — this is a hard submission gate per the hackathon handbook, not optional tooling preference (System Design §8). Claude Code is the primary pair-programming tool for the bulk of the build; to satisfy the gate honestly rather than fabricate proof:
+
+- **CodeBuddy:** at least one self-contained, real chunk of the codebase gets built directly in CodeBuddy instead of here — candidates: `backend/data_generation/` (synthetic data pipeline) or a similarly standalone module. Produces genuine conversation-history screenshots (min. 3 required).
+- **WorkBuddy:** used as a real board mirroring this document's phase list, cards moved as work actually completes — additive proof, not the hard gate.
