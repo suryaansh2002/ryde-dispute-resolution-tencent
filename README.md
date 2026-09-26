@@ -41,4 +41,4 @@ Vercel (frontend) + Render (backend) + Neon (Postgres/pgvector + Object Storage,
 
 ## Status
 
-This repository currently contains the architecture, data-strategy, policy, and roadmap documents that the implementation is being built against. See the [Development Roadmap](docs/RydeResolve-Development-Roadmap.md) for current build phase and open items.
+Foundation phase (roadmap v3 §1, Days 1–2). Done: the `CaseFile`/`Argument`/`DecisionObject`/`TriageResult` schema contract (`backend/app/schemas/`), the initial Postgres migration (`backend/migrations/0001_init.sql`), the six Prevention Rules with full unit tests, the API route layer split by owner (`backend/app/api/`), an orchestrator state-machine skeleton, and backend CI. Two developers: **Dev A** (Intake & Evidence) is building Triage, Evidence Collection, and the data pipeline; **Dev B** (Adjudication & Delivery) is building the Advocates, Judge, and frontend/delivery. See the [Development Roadmap](docs/RydeResolve-Development-Roadmap.md) for the full split and day-by-day plan.
