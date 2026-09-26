@@ -28,7 +28,7 @@ class PaymentBreakdown(BaseModel):
 
 class EvidencePhoto(BaseModel):
     evidence_id: str
-    r2_object_key: str  # kept as `r2_object_key` for schema stability; backed by Neon Object Storage now
+    r2_object_key: str  # name kept for schema stability; backed by Neon Object Storage now
     hash: str
     submitted_at: datetime
 
