@@ -1,0 +1,25 @@
+{
+  "case_id": "CASE-0001",
+  "outcome": "claim_denied",
+  "remedy": { "type": "no_action", "amount": null, "destination": null },
+  "reasoning": [
+    {
+      "finding": "Actual route was 3.74km against an optimal 3.74km (≈0.1% extra distance) — under the 10% normal-variance threshold, so no merit regardless of justification.",
+      "cites": ["ROUTE-COMPARISON"]
+    },
+    {
+      "finding": "Driver attributed the route to an app reroute for traffic; no traffic event is recorded in the case file, but the deviation is too small for this to matter.",
+      "cites": ["MSG-0002"]
+    }
+  ],
+  "policy_applied": "POL-02",
+  "confidence": 0.86,
+  "escalation": {
+    "bucket": "agent_decidable",
+    "bucket_escalate": false,
+    "confidence_escalate": false,
+    "judge_requested_escalation": false
+  },
+  "human_ratified": false,
+  "ratified_by": null
+}

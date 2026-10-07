@@ -1,0 +1,33 @@
+{
+  "case_id": "CASE-0002",
+  "outcome": "claim_upheld",
+  "remedy": { "type": "no_show_fee_waiver", "amount": 4.50, "destination": "original_payment_method" },
+  "reasoning": [
+    {
+      "finding": "Driver sent \"I'm here\" at 09:00, but the GPS trace moves ~790m between 08:58 and 09:04 — inconsistent with waiting at a fixed pickup point.",
+      "cites": ["MSG-0003", "GPS-TRACE"]
+    },
+    {
+      "finding": "Rider reports waiting outside for 6 minutes with the driver not visible.",
+      "cites": ["MSG-0004"]
+    },
+    {
+      "finding": "Pickup coordinates are not in the case file, so the 100m arrival test cannot be applied directly — confidence reduced accordingly.",
+      "cites": ["GPS-TRACE"]
+    },
+    {
+      "finding": "Complainer has 3 disputes filed in the trailing 30 days, which places this case in the always-escalate bucket regardless of confidence.",
+      "cites": ["PROFILE-COMPLAINER"]
+    }
+  ],
+  "policy_applied": "POL-03",
+  "confidence": 0.55,
+  "escalation": {
+    "bucket": "always_escalate",
+    "bucket_escalate": true,
+    "confidence_escalate": true,
+    "judge_requested_escalation": false
+  },
+  "human_ratified": true,
+  "ratified_by": "L2-reviewer-03"
+}
