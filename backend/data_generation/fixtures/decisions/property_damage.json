@@ -1,0 +1,29 @@
+{
+  "case_id": "CASE-0003",
+  "outcome": "claim_upheld",
+  "remedy": { "type": "cleaning_repair_fee", "amount": 40.00, "destination": "driver_payout" },
+  "reasoning": [
+    {
+      "finding": "Driver submitted a spill photo at 21:00, within 2 hours of the trip ending at 20:40, and raised the spill in chat at 20:45 — contemporaneous with the trip.",
+      "cites": ["EV-0001", "MSG-0005"]
+    },
+    {
+      "finding": "Rider asserts the stain was pre-existing but provides no supporting evidence; an unsupported assertion does not override photo evidence.",
+      "cites": ["MSG-0006"]
+    },
+    {
+      "finding": "Drink spillage falls in the Minor tier, capped at $40. No cleaning receipt was submitted, so the fee is applied at the tier cap pending any receipt-based adjustment.",
+      "cites": ["EV-0001"]
+    }
+  ],
+  "policy_applied": "POL-04",
+  "confidence": 0.74,
+  "escalation": {
+    "bucket": "agent_decidable",
+    "bucket_escalate": false,
+    "confidence_escalate": false,
+    "judge_requested_escalation": false
+  },
+  "human_ratified": false,
+  "ratified_by": null
+}
