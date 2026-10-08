@@ -10,8 +10,10 @@ flags the other before changing a transition the other's stage depends on.
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 
 from app.schemas.common import CaseState
+from app.schemas.trace import TraceEvent, TraceEventKind
 
 # Front half (Dev A, Day 2): opened -> triage -> assembling, plus Prevention Rules'
 # hard-stop branches out of triage. Back half (Dev B, Day 5): assembling onward.
@@ -35,16 +37,6 @@ class InvalidTransition(Exception):
     pass
 
 
-@dataclass
-class TraceEvent:
-    """Minimal shape matching system design §7's `agent_complete` event."""
-
-    case_id: str
-    kind: str
-    agent: str | None = None
-    detail: str | None = None
-
-
 TraceEmitter = Callable[[TraceEvent], Awaitable[None]]
 
 
@@ -64,5 +56,11 @@ class CaseStateMachine:
         if to not in allowed:
             raise InvalidTransition(f"{self.state} -> {to} is not a valid transition")
         detail = f"{self.state} -> {to}"
-        await self.emit(TraceEvent(case_id=self.case_id, kind="state_transition", detail=detail))
+        event = TraceEvent(
+            t=datetime.now(UTC),
+            kind=TraceEventKind.STATE_TRANSITION,
+            case_id=self.case_id,
+            detail=detail,
+        )
+        await self.emit(event)
         self.state = to

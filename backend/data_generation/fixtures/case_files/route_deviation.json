@@ -19,6 +19,8 @@
       "text": "Sorry, the app rerouted me, traffic looked bad on the highway."
     }
   ],
+  "pickup_lat": 1.3521,
+  "pickup_lng": 103.8198,
   "gps_trace": [
     { "lat": 1.3521, "lng": 103.8198, "t": "2026-09-10T08:00:00Z" },
     { "lat": 1.3601, "lng": 103.8318, "t": "2026-09-10T08:10:00Z" },
