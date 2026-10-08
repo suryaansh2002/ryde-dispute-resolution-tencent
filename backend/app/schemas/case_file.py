@@ -65,6 +65,8 @@ class CaseFile(BaseModel):
     complainee_id: str
 
     chat_log: list[ChatMessage]
+    pickup_lat: float
+    pickup_lng: float
     gps_trace: list[GPSPoint]
     optimal_route_geometry: dict | None = None
     actual_route_geometry: dict | None = None

@@ -19,6 +19,8 @@
       "text": "That was already there before I got in."
     }
   ],
+  "pickup_lat": 1.2900,
+  "pickup_lng": 103.8500,
   "gps_trace": [
     { "lat": 1.2900, "lng": 103.8500, "t": "2026-09-12T20:20:00Z" },
     { "lat": 1.2950, "lng": 103.8550, "t": "2026-09-12T20:40:00Z" }

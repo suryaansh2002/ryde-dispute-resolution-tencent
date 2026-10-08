@@ -3,6 +3,15 @@
 
 CREATE EXTENSION IF NOT EXISTS vector;
 
+-- `cases`, `evidence`, and `chat_messages` use app-generated TEXT business-key IDs
+-- (CASE-0001, EV-0001, MSG-0001), not UUIDs — these three are the only tables whose IDs
+-- get cited directly by name (Argument.cites, DecisionObject.case_id, the trace panel),
+-- and every hand-written fixture on both sides already uses this convention. Everything
+-- else (users, trips, payments, ...) stays UUID since nothing cites those IDs directly.
+CREATE SEQUENCE case_id_seq;
+CREATE SEQUENCE evidence_id_seq;
+CREATE SEQUENCE chat_message_id_seq;
+
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     role TEXT NOT NULL CHECK (role IN ('rider', 'driver')),
@@ -41,7 +50,7 @@ CREATE TABLE payments (
 );
 
 CREATE TABLE chat_messages (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id TEXT PRIMARY KEY DEFAULT ('MSG-' || lpad(nextval('chat_message_id_seq')::text, 4, '0')),
     trip_id UUID NOT NULL REFERENCES trips(id),
     sender_role TEXT NOT NULL CHECK (sender_role IN ('rider', 'driver')),
     timestamp TIMESTAMPTZ NOT NULL,
@@ -69,7 +78,7 @@ CREATE TABLE behavior_profiles (
 );
 
 CREATE TABLE cases (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id TEXT PRIMARY KEY DEFAULT ('CASE-' || lpad(nextval('case_id_seq')::text, 4, '0')),
     trip_id UUID NOT NULL REFERENCES trips(id),
     complainer_id UUID NOT NULL REFERENCES users(id),
     complainee_id UUID NOT NULL REFERENCES users(id),
@@ -83,8 +92,8 @@ CREATE TABLE cases (
 );
 
 CREATE TABLE evidence (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    case_id UUID NOT NULL REFERENCES cases(id),
+    id TEXT PRIMARY KEY DEFAULT ('EV-' || lpad(nextval('evidence_id_seq')::text, 4, '0')),
+    case_id TEXT NOT NULL REFERENCES cases(id),
     kind TEXT NOT NULL,
     hash TEXT NOT NULL,
     object_key TEXT NOT NULL,  -- Neon Object Storage (ryde-resolve bucket) key
@@ -94,7 +103,7 @@ CREATE TABLE evidence (
 
 CREATE TABLE responses (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    case_id UUID NOT NULL REFERENCES cases(id),
+    case_id TEXT NOT NULL REFERENCES cases(id),
     respondent_id UUID NOT NULL REFERENCES users(id),
     text TEXT,
     submitted_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -102,7 +111,7 @@ CREATE TABLE responses (
 
 CREATE TABLE decisions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    case_id UUID NOT NULL REFERENCES cases(id),
+    case_id TEXT NOT NULL REFERENCES cases(id),
     outcome TEXT NOT NULL,
     remedy JSONB NOT NULL,
     reasoning JSONB NOT NULL,
@@ -116,7 +125,7 @@ CREATE TABLE decisions (
 
 CREATE TABLE trace_events (
     id BIGSERIAL PRIMARY KEY,
-    case_id UUID REFERENCES cases(id),
+    case_id TEXT REFERENCES cases(id),
     t TIMESTAMPTZ NOT NULL DEFAULT now(),
     kind TEXT NOT NULL,
     agent TEXT,
@@ -127,7 +136,7 @@ CREATE TABLE trace_events (
 
 CREATE TABLE golden_cases (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    case_id UUID REFERENCES cases(id),
+    case_id TEXT REFERENCES cases(id),
     expected_outcome JSONB NOT NULL,
     last_run_result JSONB,
     last_run_at TIMESTAMPTZ
