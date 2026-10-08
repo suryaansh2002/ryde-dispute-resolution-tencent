@@ -59,6 +59,7 @@ Key architectural rules that must not be violated when implementing:
 - **Escalation is two independent deterministic checks, either one triggers L2**: a confidence threshold on `DecisionObject.confidence`, and a fixed category/risk-bucket classification — this runs unconditionally on every case regardless of whether the Judge's own `escalate_to_l2` tool fired. Never let a tool call substitute for the gate.
 - **Compliance checks can veto a decision, never author one.**
 - **Absent required evidence → decline the claim** ("declined for insufficient evidence" is a distinct outcome from "denied on the merits" — the claimant can refile).
+- **`cases.id`, `evidence.id`, and `chat_messages.id` are app-generated TEXT business keys** (`CASE-0001`, `EV-0001`, `MSG-0001`, via Postgres sequences in `migrations/0001_init.sql`), not UUIDs — these three are the only tables whose IDs get cited directly (`Argument.cites`, `DecisionObject.case_id`, the trace panel), and every fixture uses this convention. Everything else (`users`, `trips`, `payments`, ...) stays UUID. Migration applied against the Neon dev branch as of 2026-10-08.
 
 ### Deterministic vs. agentic — don't blur this
 
