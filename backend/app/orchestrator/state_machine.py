@@ -24,7 +24,14 @@ TRANSITIONS: dict[CaseState, set[CaseState]] = {
         CaseState.SAFETY_BYPASSED,
         CaseState.DECLINED_INSUFFICIENT_EVIDENCE,
     },
-    CaseState.ASSEMBLING: {CaseState.AWAITING_RESPONSE, CaseState.ADJUDICATING},
+    # DECLINED_INSUFFICIENT_EVIDENCE here too: Prevention Rule 4 is deferred to right after
+    # the Evidence Collection Agent runs (Property Damage + zero real photos in the
+    # assembled CaseFile), rather than trusted off a client-provided flag at filing time.
+    CaseState.ASSEMBLING: {
+        CaseState.AWAITING_RESPONSE,
+        CaseState.ADJUDICATING,
+        CaseState.DECLINED_INSUFFICIENT_EVIDENCE,
+    },
     CaseState.AWAITING_RESPONSE: {CaseState.ADJUDICATING},
     CaseState.ADJUDICATING: {CaseState.DECIDED},
     CaseState.DECIDED: set(),
