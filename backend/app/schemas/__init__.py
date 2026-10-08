@@ -16,9 +16,11 @@ from app.schemas.common import (
     RemedyType,
 )
 from app.schemas.decision import DecisionObject, Escalation, Finding, Remedy
+from app.schemas.trace import AgentName, TraceEvent, TraceEventKind
 from app.schemas.triage import TriageResult
 
 __all__ = [
+    "AgentName",
     "Argument",
     "BehaviorProfile",
     "CaseFile",
@@ -36,5 +38,7 @@ __all__ = [
     "PolicyTag",
     "Remedy",
     "RemedyType",
+    "TraceEvent",
+    "TraceEventKind",
     "TriageResult",
 ]
