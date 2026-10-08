@@ -1,0 +1,174 @@
+[
+  {
+    "id": 1,
+    "t": "2026-09-11T10:15:00Z",
+    "case_id": "CASE-0002",
+    "kind": "state_transition",
+    "detail": "opened -> triage"
+  },
+  {
+    "id": 2,
+    "t": "2026-09-11T10:15:00.290000Z",
+    "case_id": "CASE-0002",
+    "kind": "agent_complete",
+    "agent": "triage",
+    "detail": "category=no_show_charge tier=standard is_safety=false",
+    "latency_ms": 290
+  },
+  {
+    "id": 3,
+    "t": "2026-09-11T10:15:00.325000Z",
+    "case_id": "CASE-0002",
+    "kind": "rule_evaluation",
+    "detail": "prevention rule 5 flagged: complainer has 3 disputes in 30d"
+  },
+  {
+    "id": 4,
+    "t": "2026-09-11T10:15:00.335000Z",
+    "case_id": "CASE-0002",
+    "kind": "state_transition",
+    "detail": "triage -> assembling"
+  },
+  {
+    "id": 5,
+    "t": "2026-09-11T10:15:01.975000Z",
+    "case_id": "CASE-0002",
+    "kind": "agent_complete",
+    "agent": "evidence_collection",
+    "detail": "case file assembled, 5 evidence refs validated",
+    "latency_ms": 1640
+  },
+  {
+    "id": 6,
+    "t": "2026-09-11T10:15:01.985000Z",
+    "case_id": "CASE-0002",
+    "kind": "state_transition",
+    "detail": "assembling -> adjudicating"
+  },
+  {
+    "id": 7,
+    "t": "2026-09-11T10:15:03.365000Z",
+    "case_id": "CASE-0002",
+    "kind": "agent_output",
+    "agent": "rider_advocate",
+    "output": {
+      "role": "rider",
+      "text": "The driver claimed arrival at 09:00 but the GPS trace keeps moving roughly 790m over the next six minutes, while the rider reports waiting outside the whole time.",
+      "cites": [
+        "MSG-0003",
+        "MSG-0004",
+        "GPS-TRACE"
+      ],
+      "policy_cites": [
+        "POL-03"
+      ],
+      "confidence": 0.67
+    }
+  },
+  {
+    "id": 8,
+    "t": "2026-09-11T10:15:03.365000Z",
+    "case_id": "CASE-0002",
+    "kind": "agent_complete",
+    "agent": "rider_advocate",
+    "detail": "argument validated",
+    "latency_ms": 1380
+  },
+  {
+    "id": 9,
+    "t": "2026-09-11T10:15:03.485000Z",
+    "case_id": "CASE-0002",
+    "kind": "agent_output",
+    "agent": "driver_advocate",
+    "output": {
+      "role": "driver",
+      "text": "The driver signalled arrival in chat, and the case file contains no pickup coordinates to show the driver was outside the 100m arrival radius.",
+      "cites": [
+        "MSG-0003",
+        "GPS-TRACE"
+      ],
+      "policy_cites": [
+        "POL-03"
+      ],
+      "confidence": 0.42
+    }
+  },
+  {
+    "id": 10,
+    "t": "2026-09-11T10:15:03.485000Z",
+    "case_id": "CASE-0002",
+    "kind": "agent_complete",
+    "agent": "driver_advocate",
+    "detail": "argument validated",
+    "latency_ms": 1500
+  },
+  {
+    "id": 11,
+    "t": "2026-09-11T10:15:05.465000Z",
+    "case_id": "CASE-0002",
+    "kind": "agent_output",
+    "agent": "judge",
+    "output": {
+      "case_id": "CASE-0002",
+      "outcome": "claim_upheld",
+      "remedy": {
+        "type": "no_show_fee_waiver",
+        "amount": 4.5,
+        "destination": "original_payment_method"
+      },
+      "reasoning": [
+        {
+          "finding": "Driver sent \"I'm here\" at 09:00, but the GPS trace moves ~790m between 08:58 and 09:04 — inconsistent with waiting at a fixed pickup point.",
+          "cites": [
+            "MSG-0003",
+            "GPS-TRACE"
+          ]
+        },
+        {
+          "finding": "Rider reports waiting outside for 6 minutes with the driver not visible.",
+          "cites": [
+            "MSG-0004"
+          ]
+        },
+        {
+          "finding": "Pickup coordinates are not in the case file, so the 100m arrival test cannot be applied directly — confidence reduced accordingly.",
+          "cites": [
+            "GPS-TRACE"
+          ]
+        },
+        {
+          "finding": "Complainer has 3 disputes filed in the trailing 30 days, which places this case in the always-escalate bucket regardless of confidence.",
+          "cites": [
+            "PROFILE-COMPLAINER"
+          ]
+        }
+      ],
+      "policy_applied": "POL-03",
+      "confidence": 0.55,
+      "escalation": {
+        "bucket": "always_escalate",
+        "bucket_escalate": true,
+        "confidence_escalate": true,
+        "judge_requested_escalation": false
+      },
+      "human_ratified": false,
+      "ratified_by": null
+    }
+  },
+  {
+    "id": 12,
+    "t": "2026-09-11T10:15:05.465000Z",
+    "case_id": "CASE-0002",
+    "kind": "agent_complete",
+    "agent": "judge",
+    "detail": "decision object validated",
+    "latency_ms": 1980
+  },
+  {
+    "id": 13,
+    "t": "2026-09-11T10:15:05.480000Z",
+    "case_id": "CASE-0002",
+    "kind": "escalation",
+    "detail": "routed to L2: confidence 0.55 < 0.6 and bucket always_escalate (repeat filer)"
+  }
+]

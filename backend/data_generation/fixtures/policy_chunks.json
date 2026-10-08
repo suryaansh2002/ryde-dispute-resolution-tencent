@@ -1,0 +1,149 @@
+[
+  {
+    "chunk_id": "POL-01-01",
+    "policy_id": "POL-01",
+    "heading": "1. Purpose and General Principles",
+    "text": "This policy governs how disputes between riders and drivers are resolved on the Ryde platform. It applies to Route Deviation, No-Show Charge, and Property Damage claims (Safety Incidents are handled separately — see §5 below, they are never resolved under this policy).",
+    "source": "RydeResolve-Policy-and-Prevention-Rules.md"
+  },
+  {
+    "chunk_id": "POL-01-02",
+    "policy_id": "POL-01",
+    "heading": "1. Purpose and General Principles",
+    "text": "Four principles apply across every category:\n\n- **Good faith first.** Claims are assessed on their merits, not on which party filed first or how forcefully a claim is worded.\n- **Symmetric treatment.** The same evidentiary standard applies to both riders and drivers making comparable claims — a rider alleging a driver's fault and a driver alleging a rider's fault face the same bar of proof.\n- **Evidence over assertion.** A claim is decided on trip data, chat logs, timestamps, photos, and account history — not on the persuasiveness of either party's account alone.\n- **Proportionality.** Remedies scale with the severity and certainty of the finding. Minor, ambiguous cases get minor, reversible remedies; only clear-cut, well-evidenced cases justify larger remedies.",
+    "source": "RydeResolve-Policy-and-Prevention-Rules.md"
+  },
+  {
+    "chunk_id": "POL-02-01",
+    "policy_id": "POL-02",
+    "heading": "2. Route Deviation Disputes",
+    "text": "**Grounding, stated up front:** this is the weakest-sourced category in the whole policy. Real Ryde sources confirm that fare *recalculates* when a rider requests a destination change mid-trip and the driver accepts it (a **$3.00** add/edit-destination fee applies, shown on the receipt), and that \"overcharging riders or manipulating fares\" is treated internally as a fraud/account-suspension matter (Driver-Partner Handbook, pp.11–13) — but neither source, nor anything else found, defines a tolerance threshold, a percentage, or a refund formula for the specific case this section actually governs: a driver taking an **unrequested** longer route. That dispute type has no real Ryde-published process at all. Everything below the fee figure is therefore our own invented design, kept because the demo needs an adjudicable rule, not because it reflects Ryde's actual policy — flagged plainly rather than dressed up as sourced.",
+    "source": "RydeResolve-Policy-and-Prevention-Rules.md"
+  },
+  {
+    "chunk_id": "POL-02-02",
+    "policy_id": "POL-02",
+    "heading": "2. Route Deviation Disputes",
+    "text": "**Definition:** a claim that the actual route taken differed materially from the optimal route, without the rider's request or the driver's disclosed justification, resulting in an inflated fare, extended trip time, or both. (This is distinct from a rider-requested, driver-accepted destination change mid-trip — that's Ryde's real, documented $3.00 add/edit-destination flow, not a dispute, and isn't adjudicated here.)",
+    "source": "RydeResolve-Policy-and-Prevention-Rules.md"
+  },
+  {
+    "chunk_id": "POL-02-03",
+    "policy_id": "POL-02",
+    "heading": "2. Route Deviation Disputes",
+    "text": "**Tolerance thresholds** (not Ryde-sourced — our own invented tiering, since no real threshold exists), measured as extra distance versus the platform's computed optimal route for the same pickup/dropoff pair:\n\n| Deviation | Outcome |\n|---|---|\n| Under 10% extra distance | No merit — normal route variance (traffic routing, one-way streets). No refund. |\n| 10%–25% extra distance | Partial merit — refund the fare difference attributable to the extra distance/time, unless justified (see below). |\n| Over 25% extra distance | Full merit — refund the entire deviation-attributable portion of the fare, unless justified. |",
+    "source": "RydeResolve-Policy-and-Prevention-Rules.md"
+  },
+  {
+    "chunk_id": "POL-02-04",
+    "policy_id": "POL-02",
+    "heading": "2. Route Deviation Disputes",
+    "text": "**Justified deviation exceptions:** a deviation is justified, and no refund is owed regardless of magnitude, if any of the following is evidenced:\n\n- A recorded road closure or traffic incident along the optimal route during the trip window (checked against `traffic_events`).\n- The rider requested the detour in the chat log (e.g., an added stop, a specific route preference) — note that a *disclosed and accepted* destination change should route through Ryde's real $3.00 add/edit-destination mechanism above rather than reach this dispute flow at all; this exception exists for the case where the request was informal (chat only, no in-app flow used).\n- A safety-related detour (construction, accident scene, flagged unsafe area).",
+    "source": "RydeResolve-Policy-and-Prevention-Rules.md"
+  },
+  {
+    "chunk_id": "POL-02-05",
+    "policy_id": "POL-02",
+    "heading": "2. Route Deviation Disputes",
+    "text": "If the driver claims a justification but no corresponding evidence exists (no matching `traffic_events` entry, nothing in the chat log), the claim is treated as unjustified — an unsupported assertion doesn't override the evidentiary standard in §1.\n\n**Refund calculation** (not Ryde-sourced — our own formula): `refund = (actual_fare − fare_at_optimal_route) × merit_fraction`, where `merit_fraction` is 0.5 for the 10–25% tier and 1.0 above 25%.",
+    "source": "RydeResolve-Policy-and-Prevention-Rules.md"
+  },
+  {
+    "chunk_id": "POL-03-01",
+    "policy_id": "POL-03",
+    "heading": "3. No-Show Charge Disputes — best-sourced category; real figures throughout except the GPS-radius check",
+    "text": "**Definition:** a claim disputing a cancellation or waiting-time fee — either a rider disputing a fee charged when they say the driver never arrived, or a driver disputing a rider's claim when the driver says they waited as required.\n\n**The real fee and grace-period structure**, per Ryde's Cancellation and Waiting Time Policy:",
+    "source": "RydeResolve-Policy-and-Prevention-Rules.md"
+  },
+  {
+    "chunk_id": "POL-03-02",
+    "policy_id": "POL-03",
+    "heading": "3. No-Show Charge Disputes — best-sourced category; real figures throughout except the GPS-radius check",
+    "text": "| Trip type | Free cancellation window | Grace period once inside that window | Fee if exceeded |\n|---|---|---|---|\n| On-Demand | Within 3 minutes of matching | — | **$4.50** |\n| Advanced (pre-booked) | More than 15 minutes before pickup | 3 minutes once inside the 15-minute window | **$4.50** |",
+    "source": "RydeResolve-Policy-and-Prevention-Rules.md"
+  },
+  {
+    "chunk_id": "POL-03-03",
+    "policy_id": "POL-03",
+    "heading": "3. No-Show Charge Disputes — best-sourced category; real figures throughout except the GPS-radius check",
+    "text": "The same **$4.50** figure applies to both the cancellation fee and the driver's waiting-time fee — a driver may charge it after tapping \"I'm Here\" and waiting past 3 minutes, whether the rider eventually boards late or never shows at all. These are real, sourced amounts (help.rydesharing.com, Cancellation and Waiting Time Policy) — not illustrative.",
+    "source": "RydeResolve-Policy-and-Prevention-Rules.md"
+  },
+  {
+    "chunk_id": "POL-03-04",
+    "policy_id": "POL-03",
+    "heading": "3. No-Show Charge Disputes — best-sourced category; real figures throughout except the GPS-radius check",
+    "text": "**Driver no-show (rider's claim):** a cancellation fee is waived, and any fare charged is refunded in full, if the driver did not come within 100 meters of the pickup GPS coordinates at any point during the trip window — this is checked directly against the GPS trace, not either party's account. *(The 100-meter radius itself is not Ryde-sourced — no real article gives a distance threshold for \"arrival.\" It's our own design choice, kept because the GPS trace needs some concrete proximity test to check against.)*",
+    "source": "RydeResolve-Policy-and-Prevention-Rules.md"
+  },
+  {
+    "chunk_id": "POL-03-05",
+    "policy_id": "POL-03",
+    "heading": "3. No-Show Charge Disputes — best-sourced category; real figures throughout except the GPS-radius check",
+    "text": "**Minimum wait time:** a driver may cancel and charge the no-show/waiting fee only after waiting at least **3 minutes** at the pickup point (On-Demand), or, for a pre-booked (Advanced) ride, only once the trip is within 15 minutes of the scheduled pickup and a further 3-minute on-site grace period has elapsed — both real, sourced windows, not invented. If the driver cancelled before the applicable wait elapsed, the fee is waived regardless of whether the rider was actually present — the driver bears the burden of waiting out the window.",
+    "source": "RydeResolve-Policy-and-Prevention-Rules.md"
+  },
+  {
+    "chunk_id": "POL-03-06",
+    "policy_id": "POL-03",
+    "heading": "3. No-Show Charge Disputes — best-sourced category; real figures throughout except the GPS-radius check",
+    "text": "**Rider no-show (driver's claim):** the fee stands if the driver's GPS trace shows arrival within 100 meters of pickup (our own proximity test — see above), the applicable minimum wait elapsed, and the chat log or call log shows an attempt to reach the rider.",
+    "source": "RydeResolve-Policy-and-Prevention-Rules.md"
+  },
+  {
+    "chunk_id": "POL-03-07",
+    "policy_id": "POL-03",
+    "heading": "3. No-Show Charge Disputes — best-sourced category; real figures throughout except the GPS-radius check",
+    "text": "**Dispute window:** a rider may dispute a cancellation or waiting-time fee within **30 days** of the trip via RydeHELP (real, sourced — Cancellation Fee Waiver Request / Waiting Fee Waiver Request articles); disputes filed after 30 days are not considered. This is also what Part 2's Rule 6 (claim window) is grounded in for this category.",
+    "source": "RydeResolve-Policy-and-Prevention-Rules.md"
+  },
+  {
+    "chunk_id": "POL-04-01",
+    "policy_id": "POL-04",
+    "heading": "4. Property Damage / Mess Disputes",
+    "text": "**Definition:** a claim that a rider caused damage or mess (spills, stains, odor, physical damage) requiring a cleaning or repair fee.\n\n**Cleaning/repair fee schedule** — real, sourced caps (help.rydesharing.com, \"I made a mess in my driver's vehicle\"; matched by Terms of Use Clause 11's $200 ceiling). These are stated as **\"up to\"** amounts, not fixed prices: Ryde \"reviews photos, trip details, and cleaning receipts to determine appropriate amounts within applicable caps\" — so the table below is the ceiling per tier, not an automatic charge:",
+    "source": "RydeResolve-Policy-and-Prevention-Rules.md"
+  },
+  {
+    "chunk_id": "POL-04-02",
+    "policy_id": "POL-04",
+    "heading": "4. Property Damage / Mess Disputes",
+    "text": "| Severity | Example | Fee (up to) |\n|---|---|---|\n| Minor | Food/drink spillage or crumbs | $40 |\n| Moderate | Bodily fluids or stains (mud, dirt, paint, cement, tar, oil) | $120 |\n| Severe | Vomit | $200 |\n\n**Evidence required:** at least one photo showing the damage/mess, and — mirroring Ryde's real appeals process for Vehicle Damage Claims — a cleaning receipt that states the cleaning company's name, contact details, cleaning date, and an authorized signature, when the claim includes an actual cleaning charge rather than just the photo. A photo is treated as insufficient evidence (claim declined, not denied — see §6) if: it doesn't match the trip's timestamp window, it's a duplicate of a photo used in a prior claim, or automated image analysis flags it as inconsistent with a genuine, unedited photograph. *(The submission-timing check itself — \"within 2 hours of trip completion\" — is not Ryde-sourced; no real article gives a filing window for the photo. It's kept as our own design choice, a deliberately tight one to keep the demo's evidentiary bar strict, and should be treated as a placeholder rather than a Ryde fact.)*",
+    "source": "RydeResolve-Policy-and-Prevention-Rules.md"
+  },
+  {
+    "chunk_id": "POL-04-03",
+    "policy_id": "POL-04",
+    "heading": "4. Property Damage / Mess Disputes",
+    "text": "**Burden of proof:** the party claiming damage bears the burden. A driver's claim with no photo, or a photo that fails the checks above, is declined for insufficient evidence — the default is not \"unresolved in the rider's favor,\" it's \"declined, refile with adequate evidence\" (§6). Real-world non-payment consequence, for context (not itself part of this system's remedy set): Ryde places the paying party's account on hold until a cleaning fee is settled.",
+    "source": "RydeResolve-Policy-and-Prevention-Rules.md"
+  },
+  {
+    "chunk_id": "POL-05-01",
+    "policy_id": "POL-05",
+    "heading": "5. Safety Incidents (not resolved under this policy)",
+    "text": "Any claim flagged as a Safety Incident — by category selection at filing, or by the Triage Agent's classification — is never adjudicated by this policy or by the Rider/Driver Advocate or Judge agents. It routes directly to a human reviewer (the L2 queue) regardless of the evidence available or the system's confidence. This is a structural rule, not a policy judgment call — it's enforced in code (see Part 2, Rule 3), not reasoned about by any agent.",
+    "source": "RydeResolve-Policy-and-Prevention-Rules.md"
+  },
+  {
+    "chunk_id": "POL-06-01",
+    "policy_id": "POL-06",
+    "heading": "6. Evidence Sufficiency Standard",
+    "text": "A claim is **declined** — not decided against either party — when the evidence required for its category (per §2–§4 above) isn't present or doesn't meet the stated bar. \"Declined for insufficient evidence\" is a distinct outcome from \"claim denied\": it means the claimant can refile with better evidence, not that the claim was heard and rejected on the merits.",
+    "source": "RydeResolve-Policy-and-Prevention-Rules.md"
+  },
+  {
+    "chunk_id": "POL-07-01",
+    "policy_id": "POL-07",
+    "heading": "7. Remedy Types and Caps",
+    "text": "Available remedies: full refund, partial refund (fare-difference-based, per §2), compensation credit, cleaning/repair fee charge (per §4), no-show fee waiver, no action. Every remedy is capped at the total fare of the trip in question, except cleaning/repair fees, which follow the schedule in §4 independent of fare size.",
+    "source": "RydeResolve-Policy-and-Prevention-Rules.md"
+  },
+  {
+    "chunk_id": "POL-08-01",
+    "policy_id": "POL-08",
+    "heading": "8. Escalation Triggers",
+    "text": "A decision routes to human review (L2) instead of being finalized automatically when:\n\n- The category is Safety Incident (§5 — always, unconditionally).\n- The Judge's confidence in its ruling falls below 0.6 (ties to the two-phase escalation gate, §6.1 of the system design).\n- Either party involved has 3 or more disputes filed against them in the preceding 30 days (ties to Prevention Rule 5's velocity/repeat-filer flag, Part 2 below — there is no separate Fraud & Bad-Faith Detection Agent in the finalized architecture; this flag is the only mechanism watching for the pattern) — flagged for human review even if the individual case looks clear-cut, since a pattern across cases is a signal an isolated per-case decision can't see.",
+    "source": "RydeResolve-Policy-and-Prevention-Rules.md"
+  }
+]
