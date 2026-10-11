@@ -159,3 +159,24 @@ async def test_upheld_claim_without_a_policy_gets_a_correction():
         case="no_show_charge",
     )
     assert run.verdict.policy_applied == "POL-03"
+
+
+def test_policy_fixed_amounts_are_computed_in_code():
+    from pathlib import Path
+
+    from app.agents.judge.agent import _policy_amount
+    from app.schemas import CaseFile, RemedyType
+    from app.tools.evidence_lookup import ROUTE_COMPARISON, evidence_index
+
+    files = Path(__file__).resolve().parents[1] / "data_generation" / "fixtures" / "case_files"
+
+    def load(name):
+        return CaseFile.model_validate_json((files / f"{name}.json").read_text())
+
+    no_show = load("no_show_charge")
+    assert _policy_amount(no_show, RemedyType.NO_SHOW_FEE_WAIVER) == 4.5
+    route = load("route_deviation")
+    formula = evidence_index(route)[ROUTE_COMPARISON].data["refund_if_unjustified"]
+    assert _policy_amount(route, RemedyType.PARTIAL_REFUND) == (formula or None)
+    # The cleaning fee's tier is the Judge's call, not a fixed figure.
+    assert _policy_amount(load("property_damage"), RemedyType.CLEANING_REPAIR_FEE) is None

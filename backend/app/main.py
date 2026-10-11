@@ -4,7 +4,7 @@ import logfire
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import cases, decisions, demo, events, evidence, l2
+from app.api import cases, decisions, demo, events, evidence, golden, l2
 from app.config import settings
 from app.data.db import close_pools
 
@@ -39,6 +39,7 @@ app.include_router(decisions.router)
 app.include_router(l2.router)
 app.include_router(events.router)
 app.include_router(demo.router)
+app.include_router(golden.router)
 
 
 @app.get("/health")

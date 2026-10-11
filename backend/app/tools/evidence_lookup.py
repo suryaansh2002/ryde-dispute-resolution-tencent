@@ -8,6 +8,7 @@ distances itself. This index is also what the citation validators check `cites` 
 """
 
 from dataclasses import dataclass
+from datetime import datetime
 from math import asin, cos, radians, sin, sqrt
 from typing import Any
 
@@ -25,6 +26,9 @@ PICKUP_PROXIMITY = "PICKUP-PROXIMITY"
 
 # Not Ryde-sourced: our own proximity test for "the driver arrived" (Policy doc §3).
 PICKUP_ARRIVAL_RADIUS_M = 100
+# Not Ryde-sourced: our own test for a traffic incident "along the optimal route" (Policy
+# doc §2): active during the trip and within this distance of the planned route.
+TRAFFIC_MATCH_RADIUS_M = 2000
 
 _EARTH_RADIUS_KM = 6371.0088
 
@@ -50,6 +54,58 @@ def route_length_km(geometry: dict | None) -> float | None:
     return sum(_haversine_km(coords[i], coords[i + 1]) for i in range(len(coords) - 1))
 
 
+def _distance_to_route_m(point: list[float], geometry: dict | None) -> float | None:
+    """Shortest distance from a [lng, lat] point to a LineString, in metres (local
+    equirectangular projection; fine at city scale)."""
+    coords = (geometry or {}).get("coordinates") or []
+    if len(coords) < 2:
+        return None
+    k = cos(radians(point[1]))
+    m_per_deg = _EARTH_RADIUS_KM * 1000 * radians(1)
+
+    def xy(c: list[float]) -> tuple[float, float]:
+        return ((c[0] - point[0]) * k * m_per_deg, (c[1] - point[1]) * m_per_deg)
+
+    best = float("inf")
+    for a, b in zip(coords, coords[1:], strict=False):
+        (ax, ay), (bx, by) = xy(a), xy(b)
+        dx, dy = bx - ax, by - ay
+        seg = dx * dx + dy * dy
+        t = 0.0 if seg == 0 else max(0.0, min(1.0, -(ax * dx + ay * dy) / seg))
+        best = min(best, sqrt((ax + t * dx) ** 2 + (ay + t * dy) ** 2))
+    return best
+
+
+def _when(value: Any) -> datetime | None:
+    if isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(str(value))
+    except ValueError:
+        return None
+
+
+def _traffic_facts(event: dict, case_file: CaseFile) -> dict:
+    """Policy-test facts about one traffic event, computed in code like ROUTE-COMPARISON."""
+    facts: dict[str, Any] = {}
+    lat, lng = event.get("near_lat"), event.get("near_lng")
+    if lat is not None and lng is not None:
+        dist = _distance_to_route_m([lng, lat], case_file.optimal_route_geometry)
+        if dist is not None:
+            facts["distance_to_planned_route_m"] = round(dist)
+    start, end = _when(event.get("time_window_start")), _when(event.get("time_window_end"))
+    trip_start = case_file.trip_started_at or case_file.trip_completed_at
+    trip_end = case_file.trip_completed_at
+    if start and end and trip_start and trip_end:
+        facts["during_trip"] = start <= trip_end and end >= trip_start
+    if "distance_to_planned_route_m" in facts and "during_trip" in facts:
+        facts["matches_route"] = (
+            facts["during_trip"] and facts["distance_to_planned_route_m"] <= TRAFFIC_MATCH_RADIUS_M
+        )
+        facts["match_radius_m"] = TRAFFIC_MATCH_RADIUS_M
+    return facts
+
+
 def evidence_index(case_file: CaseFile) -> dict[str, EvidenceItem]:
     index: dict[str, EvidenceItem] = {}
     for msg in case_file.chat_log:
@@ -59,7 +115,9 @@ def evidence_index(case_file: CaseFile) -> dict[str, EvidenceItem]:
     # Traffic events are cited as TRAFFIC-01, TRAFFIC-02... in case-file order, like every
     # other non-message ref, not by their database UUID, which is unreadable in a citation.
     for i, event in enumerate(case_file.traffic_events, start=1):
-        index[f"TRAFFIC-{i:02d}"] = EvidenceItem("traffic_event", event)
+        index[f"TRAFFIC-{i:02d}"] = EvidenceItem(
+            "traffic_event", {**event, **_traffic_facts(event, case_file)}
+        )
 
     index[PAYMENT] = EvidenceItem("payment", case_file.payment.model_dump(mode="json"))
     if case_file.gps_trace:
@@ -104,5 +162,11 @@ def evidence_index(case_file: CaseFile) -> dict[str, EvidenceItem]:
             "refund_if_unjustified": route_refund(
                 case_file.payment.base_fare, extra_km, actual_km, extra_pct
             ),
+            # Traffic events active during the trip and near the planned route: the
+            # "matching traffic event" that justifies a deviation (Policy doc §2).
+            "matching_traffic_events": [
+                ref for ref, item in index.items()
+                if item.kind == "traffic_event" and item.data.get("matches_route")
+            ],
         })
     return index

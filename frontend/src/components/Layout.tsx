@@ -46,6 +46,7 @@ export function Layout() {
             {persona && <NavLink to={`/${persona.role}/${persona.id}`}>My disputes</NavLink>}
             <NavLink to="/trace">System trace</NavLink>
             <NavLink to="/l2">Human review</NavLink>
+            <NavLink to="/insights">Accuracy</NavLink>
           </nav>
           <span className="spacer" />
           {persona && (

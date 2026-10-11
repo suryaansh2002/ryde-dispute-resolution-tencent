@@ -9,6 +9,7 @@ React + Vite + TypeScript. One app with persona-scoped routes, not four separate
 | `/:role/:userId/file/:tripId` | Report a problem: category tiles, what gets checked automatically, photo drop zone. `?demo=1&category=…` pre-fills it, including a generated sample photo for damage |
 | `/:role/:userId/case/:caseId` | Case: progress stepper, "what happens next", the decision as a ruling with clickable evidence, both sides' statements. Declined cases offer a refile |
 | `/trace`, `/trace/:caseId` | System trace: live route line, stage captions, run metrics, both statements, then every agent output and gate |
+| `/insights` | Accuracy: runs the 22 golden cases for real and shows the pass rate, per-category bars, label vs verdict per case (each links to its trace), and why cases went to a person |
 | `/l2`, `/l2/:caseId` | Human review: queue table with "why a person" chips, the agents' recommendation, gate checks, ratify/override with structured reasons. Keys: J/K, A, O |
 
 ## Design

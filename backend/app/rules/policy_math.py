@@ -35,3 +35,15 @@ def route_refund(base_fare: float, extra_km: float, actual_km: float, extra_pct:
         return 0.0
     merit = ROUTE_MERIT[route_tier(extra_pct)]
     return round(base_fare * extra_km / actual_km * merit, 2)
+
+
+# Fees a No-Show dispute can waive (Policy doc §3). The $4.50 no-show fee is Ryde-sourced.
+NO_SHOW_FEE_TYPES = {"no_show_fee", "cancellation_fee", "waiting_fee"}
+
+
+def no_show_fees(add_on_fees: list[dict]) -> float:
+    """Total no-show/cancellation/waiting fees charged on a trip: exactly what a waiver
+    returns."""
+    return round(sum(
+        float(f.get("amount", 0)) for f in add_on_fees if f.get("type") in NO_SHOW_FEE_TYPES
+    ), 2)

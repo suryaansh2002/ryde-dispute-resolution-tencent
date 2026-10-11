@@ -213,6 +213,19 @@ export function EvidenceDrawer({ refId, onClose }: { refId: string; onClose: () 
           </dd>
           <dt>Description</dt>
           <dd>{item.data.description}</dd>
+          {item.data.distance_to_planned_route_m != null && (
+            <>
+              <dt>From the planned route</dt>
+              <dd className="mono">{item.data.distance_to_planned_route_m} m</dd>
+              <dt>During the trip</dt>
+              <dd>{item.data.during_trip ? 'Yes' : 'No'}</dd>
+              <dt>Justifies a detour</dt>
+              <dd>
+                {item.data.matches_route ? 'Yes' : 'No'}{' '}
+                <span className="tiny faint">(during the trip and within {item.data.match_radius_m / 1000} km)</span>
+              </dd>
+            </>
+          )}
         </dl>
       </div>
     )
