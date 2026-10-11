@@ -34,7 +34,7 @@ Full diagrams and rationale live in [`docs/RydeResolve-System-Design.md`](docs/R
 | [Data Sources & Generation Strategy](docs/RydeResolve-Data-Sources-and-Strategy.md) | Which data the architecture needs, where it comes from (real API, synthetic, or semi-dummy), new Postgres tables, and the synthetic-dataset generation pipeline |
 | [Dispute Resolution Policy & Prevention Rules](docs/RydeResolve-Policy-and-Prevention-Rules.md) | The actual policy corpus used for Policy RAG, and the six deterministic Prevention Rules, each labeled as either real-Ryde-sourced or an invented design choice |
 | [Execution Plan](docs/RydeResolve-Execution-Plan.md) | **Current** plan to submission: where we are, the remaining steps in order, decisions taken, and what needs a person |
-| [Deploy the Backend](docs/RydeResolve-Deploy-Backend.md) | Step-by-step Render deployment with secrets table, smoke test and done checklist (owner: Dev B) |
+| [Deploy (Render + Vercel)](docs/RydeResolve-Deploy-Backend.md) | Step-by-step deploy of the backend (Render) and frontend (Vercel): secrets, smoke test, golden-path walkthrough, done checklist (owner: Dev B) |
 | [Development Roadmap](docs/RydeResolve-Development-Roadmap.md) | Two-developer, ~14-day build plan with day-by-day ownership, phasing, risks, and the demo-ready definition of done |
 
 ## Deployment (all free tier)
@@ -43,4 +43,13 @@ Vercel (frontend) + Render (backend) + Neon (Postgres/pgvector + Object Storage,
 
 ## Status
 
-Foundation phase (roadmap v3 §1, Days 1–2). Done: the `CaseFile`/`Argument`/`DecisionObject`/`TriageResult` schema contract (`backend/app/schemas/`), the initial Postgres migration (`backend/migrations/0001_init.sql`), the six Prevention Rules with full unit tests, the API route layer split by owner (`backend/app/api/`), an orchestrator state-machine skeleton, and backend CI. Two developers: **Dev A** (Intake & Evidence) is building Triage, Evidence Collection, and the data pipeline; **Dev B** (Adjudication & Delivery) is building the Advocates, Judge, and frontend/delivery. See the [Development Roadmap](docs/RydeResolve-Development-Roadmap.md) for the full split and day-by-day plan.
+**Working end to end on real infrastructure** (Neon + Groq). A claim filed in the browser goes through Triage → Prevention rules → Evidence Collection → the other party's response → both advocates in parallel → Judge → escalation gate → compliance check → a decision, or the L2 human queue. Every step streams live to the System Trace page. 119 backend tests; the frontend is tested in a real browser. Deployment to Render + Vercel is documented in [`docs/RydeResolve-Deploy-Backend.md`](docs/RydeResolve-Deploy-Backend.md). Current plan and remaining work: [`docs/RydeResolve-Execution-Plan.md`](docs/RydeResolve-Execution-Plan.md).
+
+### Run it locally
+
+```bash
+cd backend && uv sync && uv run uvicorn app.main:app --port 8000      # needs the root .env
+cd frontend && npm install && npm run dev                             # http://localhost:5173
+```
+
+The database already holds 200 synthetic trips. To regenerate: `cd backend && uv run python -m data_generation.pipeline.generate --count 200 --seed 42`.

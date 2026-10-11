@@ -68,7 +68,10 @@ Logfire spans every agent run (configured at server startup). SSE: `/events/case
 - Logfire (`logfire.configure()` + `instrument_pydantic_ai()`).
 - A trace event bus plus SSE endpoints (`/events/cases/{id}`, `/events/l2`). The events are already written to Postgres; they just need streaming.
 
-### Step 4 — Frontend (~1.5 days)
+### Step 4 — Frontend (~1.5 days) — ✅ BUILT 2026-10-11, deploy assigned to Dev B
+
+`frontend/`: React + Vite + TypeScript (strict). Persona picker, Rider/Driver panels (file a claim with photo upload, respond, decision document), case page with live progress, System Trace page (advocates side by side, the Judge's card, every gate) and the L2 console (live queue, ratify/override). Tested in a real browser (Playwright, outside the repo) against the local backend, with zero console errors. Paths covered: route deviation file → respond → decision; property damage with a real photo upload → "decide now"; safety claim → straight to L2 → override; escalated case → ratify. Backend support added for it: `?background=true` filing/response (202 + watch the stream), `POST /uploads`, `GET /cases`, `GET /cases/{id}/view`, a DB connection pool (requests went from ~2 s each to the network round trip). **Vercel deploy: Part 2 of [RydeResolve-Deploy-Backend.md](RydeResolve-Deploy-Backend.md) (Dev B).**
+
 - React + Vite + TypeScript, a persona picker, an API client and the SSE connection.
 - **Rider/Driver panels:** pick a trip, file a claim, upload a photo, respond to a claim, see the decision document with the other side's private details hidden.
 - **Trace panel:** a live timeline showing each advocate's argument and the Judge's reasoning as cards.

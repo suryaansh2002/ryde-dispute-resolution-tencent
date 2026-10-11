@@ -133,7 +133,9 @@ async def process_claim(opened: OpenedClaim) -> FileClaimResult:
         outcome = run_prevention_rules(ctx)
         await record_trace_event(
             conn, case_id, TraceEventKind.RULE_EVALUATION,
-            detail=f"prevention: {outcome.action.value} ({outcome.detail})",
+            detail=f"prevention: {outcome.action.value}"
+            + (f" — {outcome.detail}" if outcome.detail else "")
+            + (" (repeat filer flagged)" if outcome.velocity_flagged else ""),
         )
 
         if outcome.action == PreventionAction.SAFETY_BYPASSED:

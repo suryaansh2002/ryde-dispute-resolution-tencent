@@ -1,8 +1,15 @@
 """Postgres access layer (system design §5). The Evidence Collection Agent is the only
-agent that reaches this module directly — everyone downstream works off the `CaseFile`
-it produces (system design §4 rule 2, §6).
+agent that reaches this module directly; everyone downstream works off the `CaseFile`
+it produces (system design §4 rule 2, §6). The orchestrator and API use it too.
+
+Connections come from a pool. Opening a fresh TLS connection to Neon costs 1–2 s, which
+made every page load and live update visibly lag. Callers keep the simple
+`conn = await get_connection()` / `await conn.close()` shape; close() returns the
+connection to the pool. Long-lived LISTEN streams use `connect_direct()` instead, so an
+open browser tab can never starve the pool.
 """
 
+import asyncio
 import json
 from dataclasses import dataclass
 from typing import Any
@@ -11,9 +18,56 @@ import asyncpg
 
 from app.config import settings
 
+# One pool per event loop: scripts call asyncio.run() more than once, and an asyncpg
+# pool is bound to the loop that created it.
+_pools: dict[int, asyncpg.Pool] = {}
+_pool_lock = asyncio.Lock()
+
+
+async def _pool() -> asyncpg.Pool:
+    key = id(asyncio.get_running_loop())
+    if key not in _pools:
+        async with _pool_lock:
+            if key not in _pools:
+                _pools[key] = await asyncpg.create_pool(
+                    settings.database_url_unpooled,
+                    min_size=1,
+                    max_size=10,
+                    # Neon suspends idle compute after ~5 min, killing its connections.
+                    # Retire idle ones well before that rather than hand out a dead one.
+                    max_inactive_connection_lifetime=60,
+                )
+    return _pools[key]
+
+
+class PooledConnection:
+    """An asyncpg connection whose close() returns it to the pool."""
+
+    def __init__(self, pool: asyncpg.Pool, conn: asyncpg.Connection):
+        self._pool = pool
+        self._conn = conn
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._conn, name)
+
+    async def close(self) -> None:
+        await self._pool.release(self._conn)
+
 
 async def get_connection() -> asyncpg.Connection:
+    pool = await _pool()
+    return PooledConnection(pool, await pool.acquire())  # type: ignore[return-value]
+
+
+async def connect_direct() -> asyncpg.Connection:
+    """A dedicated, unpooled connection, for long-lived uses like LISTEN."""
     return await asyncpg.connect(settings.database_url_unpooled)
+
+
+async def close_pools() -> None:
+    for pool in list(_pools.values()):
+        await pool.close()
+    _pools.clear()
 
 
 def _loads(value: Any) -> Any:

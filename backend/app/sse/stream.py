@@ -21,7 +21,7 @@ from typing import Any
 import asyncpg
 
 from app.data.cases import TRACE_CHANNEL
-from app.data.db import get_connection
+from app.data.db import connect_direct
 
 RECHECK_SECONDS = 5.0
 
@@ -63,7 +63,7 @@ async def fetch_l2_events(conn: asyncpg.Connection, after_id: int) -> list[dict[
 
 async def tail(fetch: Fetch, after_id: int) -> AsyncIterator[dict[str, Any]]:
     """Yields sse-starlette event dicts: replay first, then live."""
-    conn = await get_connection()
+    conn = await connect_direct()
     wake = asyncio.Event()
 
     def on_notify(*_: object) -> None:
