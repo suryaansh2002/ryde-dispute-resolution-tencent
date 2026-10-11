@@ -78,6 +78,8 @@ Logfire spans every agent run (configured at server startup). SSE: `/events/case
 - **L2 console:** the queue of escalated cases and a ratify button.
 - Deploy to Vercel and test a cold start the way a judge would hit it.
 
+**UX overhaul (2026-10-11):** the v1 screens were redesigned end to end. Highlights: the landing page has one-click demo cases; the pipeline is drawn as a live route line; every citation opens the evidence (map, chat, fare, photo, policy); decisions are shown as rulings with gate checks and a counterfactual; and L2 gets a queue table with keyboard shortcuts and structured override reasons. There are light and dark themes. See `frontend/README.md`. Agent runs now retry on Groq 429s and 5xx (`backend/app/agents/retry.py`).
+
 ### Step 5 — Proof that it works (~0.5 day, can be cut)
 - Golden-run: file each labelled case for real and compute a pass rate for the dashboard.
 - Tune prompts on the cases that fail.

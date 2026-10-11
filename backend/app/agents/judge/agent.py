@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 
 from pydantic_ai import Agent, ModelRetry, RunContext
 
+from app.agents.retry import run_agent
 from app.config import settings
 from app.rules.escalation import CONFIDENCE_THRESHOLD, matching_bucket_rules
 from app.schemas import Argument, CaseFile, DecisionOutcome, JudgeVerdict, RemedyType
@@ -250,7 +251,8 @@ async def run_judge(
             _policy_id(p) for p in rider_argument.policy_cites + driver_argument.policy_cites
         },
     )
-    result = await judge_agent.run(
+    result = await run_agent(
+        judge_agent,
         render_judge_input(case_file, rider_argument, driver_argument), deps=deps
     )
     return JudgeRun(

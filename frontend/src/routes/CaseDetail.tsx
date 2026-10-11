@@ -1,19 +1,68 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { DecisionDocument } from '../components/DecisionDocument'
+import { PartyName } from '../components/Party'
+import { Ruling } from '../components/Ruling'
 import { StateBadge } from '../components/StateBadge'
+import { StatusStepper } from '../components/StatusStepper'
 import { api, streamUrl } from '../lib/api'
-import { CATEGORY_LABEL, IN_PROGRESS, STATE_LABEL, when } from '../lib/format'
+import { EvidenceProvider } from '../lib/evidence'
+import { CATEGORY_LABEL, IN_PROGRESS, when } from '../lib/format'
 import { savePersona } from '../lib/persona'
+import { deriveStations, stationsFromState } from '../lib/pipeline'
 import { useEventStream } from '../lib/useEventStream'
-import type { CaseState, CaseView, DecisionResponse, Role, TraceEvent } from '../types/api'
-
-const DECISION_STATES: CaseState[] = ['decided', 'escalated']
+import type { CaseView, DecisionResponse, Role, TraceEvent } from '../types/api'
 
 const RESPONSE_EXAMPLES: Record<Role, string> = {
   rider: "That's not what happened. I didn't cause this, and the trip record should show it.",
   driver: 'I followed the app and did what I was supposed to. The trip data will back me up.',
+}
+
+function nextStep(view: CaseView, iAmComplainer: boolean, otherName: string): { title: string; text: string } {
+  switch (view.state) {
+    case 'opened':
+    case 'triage':
+    case 'assembling':
+      return {
+        title: 'Checking the report',
+        text: 'An agent is reading the report and assembling the trip record: GPS, route, fare, messages. Usually under a minute.',
+      }
+    case 'awaiting_response':
+      return iAmComplainer
+        ? {
+            title: `Waiting for ${otherName}`,
+            text: `${otherName} has been asked for their side. Nothing is decided until they respond or the response window closes.`,
+          }
+        : {
+            title: 'Tell us your side',
+            text: 'Nothing has been decided. Your response goes to the advocate arguing for you, alongside the trip record.',
+          }
+    case 'adjudicating':
+      return {
+        title: 'The hearing is under way',
+        text: 'Two advocates are arguing each side from the identical trip record, then a Judge rules. About a minute.',
+      }
+    case 'escalated':
+      return {
+        title: 'A person is making the final call',
+        text: 'The automated checks wanted a human to decide this one. A reviewer will look at the evidence and both sides; the decision will appear here.',
+      }
+    case 'safety_bypassed':
+      return {
+        title: 'With our safety team',
+        text: 'Safety reports are never decided by an automated system. A safety specialist will contact you directly.',
+      }
+    case 'declined_insufficient_evidence':
+      return {
+        title: 'Declined, not denied',
+        text: 'There wasn’t enough evidence to look into this, which is different from a ruling against you. You can report it again with the missing evidence.',
+      }
+    case 'decided':
+      return {
+        title: 'Decided',
+        text: 'The decision below cites the evidence it relied on. Tap any reference to see it.',
+      }
+  }
 }
 
 export function CaseDetail() {
@@ -34,27 +83,32 @@ export function CaseDetail() {
   // Every new trace event can change the case: re-read it.
   const lastEventId = events[events.length - 1]?.id
   useEffect(() => {
-    if (lastEventId) refresh()
+    if (!lastEventId) return
+    refresh()
+    // The trace event can land a moment before the case row is updated.
+    const t = setTimeout(refresh, 1500)
+    return () => clearTimeout(t)
   }, [lastEventId, refresh])
 
+  const state = view?.state
+  const updated = view?.updated_at
   useEffect(() => {
-    if (view && DECISION_STATES.includes(view.state)) {
-      api.decision(caseId).then(setDecision, () => setDecision(null))
-    }
-  }, [view?.state, view?.updated_at, caseId, view])
+    if (state === 'decided') api.decision(caseId).then(setDecision, () => setDecision(null))
+  }, [state, updated, caseId])
 
-  const steps = useMemo(
-    () => events.filter((e) => e.kind === 'state_transition' || e.kind === 'error'),
-    [events],
+  const stations = useMemo(
+    () => (events.length ? deriveStations(events) : stationsFromState(state ?? 'opened')),
+    [events, state],
   )
   const lastRule = [...events].reverse().find((e) => e.kind === 'rule_evaluation')
 
-  if (error) return <p className="error-text">{error}</p>
+  if (error && !view) return <p className="error-text">{error}</p>
   if (!view)
     return (
-      <p className="muted">
-        <span className="spinner" /> Loading case…
-      </p>
+      <div className="stack">
+        <div className="skeleton" style={{ height: 40, width: '40%' }} />
+        <div className="skeleton" style={{ height: 160 }} />
+      </div>
     )
 
   const iAmComplainer = view.complainer_id === userId
@@ -63,6 +117,9 @@ export function CaseDetail() {
   const otherId = iAmComplainer ? view.complainee_id : view.complainer_id
   const myTurn = !iAmComplainer && view.state === 'awaiting_response'
   const moving = IN_PROGRESS.includes(view.state)
+  const next = nextStep(view, iAmComplainer, otherName)
+  const complainerRole = view.complainer_role
+  const complaineeRole: Role = complainerRole === 'rider' ? 'driver' : 'rider'
 
   const switchToOther = () => {
     savePersona({ id: otherId, role: otherRole, name: otherName })
@@ -90,140 +147,145 @@ export function CaseDetail() {
   }
 
   return (
-    <>
-      <div className="page-head">
-        <div>
-          <Link to={`/${role}/${userId}`} className="small">
-            ← Back to your panel
-          </Link>
-          <h1 style={{ marginTop: 6 }}>
-            {view.category ? CATEGORY_LABEL[view.category] : 'Dispute'}{' '}
-            <span className="muted mono" style={{ fontSize: '0.9rem' }}>
-              {view.id}
+    <EvidenceProvider caseId={caseId} view="party">
+      <div className="stack" style={{ gap: 20 }}>
+        <div className="page-head" style={{ marginBottom: 0 }}>
+          <div className="stack" style={{ gap: 6 }}>
+            <Link to={`/${role}/${userId}`} className="small muted">
+              ← Your disputes
+            </Link>
+            <span className="eyebrow">
+              Dispute <span className="mono">{view.id}</span> · opened {when(view.created_at)}
             </span>
-          </h1>
-          <p>
-            {iAmComplainer ? `You filed this against ${otherName}` : `${otherName} filed this against you`}{' '}
-            · opened {when(view.created_at)}
-          </p>
+            <h1>{view.category ? CATEGORY_LABEL[view.category] : 'Dispute'}</h1>
+            <p className="muted">
+              {iAmComplainer ? (
+                <>
+                  You reported <PartyName role={complaineeRole} name={otherName} />
+                </>
+              ) : (
+                <>
+                  <PartyName role={complainerRole} name={otherName} /> reported you
+                </>
+              )}
+            </p>
+          </div>
+          <div className="row">
+            <StateBadge state={view.state} />
+            <Link to={`/trace/${caseId}`} className="btn btn-sm">
+              Watch the agents →
+            </Link>
+          </div>
         </div>
-        <div className="row">
-          <StateBadge state={view.state} />
-          <Link to={`/trace/${caseId}`} className="button small">
-            Watch the agents →
-          </Link>
-        </div>
-      </div>
 
-      <div className="grid-main">
-        <div className="stack">
-          {decision && (
-            <section className="card">
-              <DecisionDocument markdown={decision.document} />
-            </section>
-          )}
-
-          {view.state === 'safety_bypassed' && (
-            <div className="callout tone-bad">
-              <strong>Sent straight to a human reviewer.</strong> The claim describes a possible
-              safety issue, and those are never decided by an automated system. No agent argued
-              this case.
-            </div>
-          )}
-          {view.state === 'declined_insufficient_evidence' && (
-            <div className="callout tone-neutral">
-              <strong>Declined: not enough evidence to proceed.</strong> This isn't a ruling against
-              you. The claim can be refiled with better evidence.
-              {lastRule?.detail && <div className="small mono" style={{ marginTop: 6 }}>{lastRule.detail}</div>}
-            </div>
-          )}
-
-          <section className="card">
-            <h3>{iAmComplainer ? 'Your claim' : `${view.complainer_name}'s claim against you`}</h3>
-            <p className="quote">{view.claim_text}</p>
-          </section>
-
-          <section className="card">
-            <h3>{iAmComplainer ? `${view.complainee_name}'s response` : 'Your response'}</h3>
-            {view.response ? (
-              <>
-                <p className="quote">{view.response.text}</p>
-                <p className="small faint">submitted {when(view.response.submitted_at)}</p>
-              </>
-            ) : myTurn ? (
-              <form className="stack" onSubmit={sendReply}>
-                <textarea
-                  value={reply}
-                  onChange={(e) => setReply(e.target.value)}
-                  placeholder="Your side of what happened"
-                  required
-                />
-                <div className="row">
-                  <button className="primary" disabled={sending || !reply.trim()}>
-                    {sending ? (
-                      <>
-                        <span className="spinner" /> Sending…
-                      </>
-                    ) : (
-                      'Send response'
-                    )}
-                  </button>
-                  <button type="button" className="small" onClick={() => setReply(RESPONSE_EXAMPLES[role])}>
-                    Use example text
-                  </button>
-                </div>
-                <p className="small muted">
-                  Sending starts the hearing: an advocate for each side, then the Judge. It takes
-                  about a minute; you can watch it live.
+        <section className="panel panel-pad stack" style={{ gap: 16 }}>
+          <StatusStepper stations={stations} />
+          <div className="what-next">
+            {moving ? <span className="spinner" style={{ marginTop: 3 }} /> : <span className="avatar ink" style={{ width: 22, height: 22, fontSize: '0.7rem' }}>i</span>}
+            <div>
+              <strong>{next.title}</strong>
+              <p className="small muted">{next.text}</p>
+              {view.state === 'declined_insufficient_evidence' && lastRule?.detail && (
+                <p className="tiny faint mono" style={{ marginTop: 4 }}>
+                  {lastRule.detail}
                 </p>
-              </form>
-            ) : view.state === 'awaiting_response' ? (
-              <div className="stack">
-                <p className="muted">Waiting for {otherName} to respond.</p>
-                <div className="row">
-                  <button className="small" onClick={switchToOther}>
-                    Demo: switch to {otherName} to respond
-                  </button>
-                  <button className="small" onClick={adjudicateNow}>
-                    Skip waiting: decide now
-                  </button>
+              )}
+            </div>
+          </div>
+          {view.state === 'declined_insufficient_evidence' && iAmComplainer && (
+            <div>
+              <Link to={`/${role}/${userId}/file/${view.trip_id}`} className="btn btn-primary btn-sm">
+                Report again with evidence
+              </Link>
+            </div>
+          )}
+        </section>
+
+        <div className="split">
+          <div className="stack">
+            {decision && (
+              <Ruling
+                decision={decision.decision}
+                category={view.category}
+                title={decision.decision.human_ratified ? 'Decision, reviewed by a person' : 'Decision'}
+                gates={false}
+              />
+            )}
+
+            <section className="panel hearing">
+              <div className="panel-head">
+                <h2>Both sides</h2>
+                <span className="tiny faint">The Judge never sees this text, only the evidence and the advocates’ arguments.</span>
+              </div>
+              <div className="panel-body stack">
+                <div className="stack" style={{ gap: 6 }}>
+                  <PartyName role={complainerRole} name={iAmComplainer ? 'You' : view.complainer_name} />
+                  <p className="quote" style={{ ['--party' as string]: `var(--${complainerRole})` }}>
+                    {view.claim_text}
+                  </p>
+                </div>
+                <div className="stack" style={{ gap: 6 }}>
+                  <PartyName role={complaineeRole} name={iAmComplainer ? view.complainee_name : 'You'} />
+                  {view.response ? (
+                    <>
+                      <p className="quote" style={{ ['--party' as string]: `var(--${complaineeRole})` }}>
+                        {view.response.text}
+                      </p>
+                      <span className="tiny faint">responded {when(view.response.submitted_at)}</span>
+                    </>
+                  ) : myTurn ? (
+                    <form className="stack" onSubmit={sendReply} style={{ gap: 10 }}>
+                      <textarea value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Your side of what happened" required />
+                      <div className="row">
+                        <button className="btn-primary" disabled={sending || !reply.trim()}>
+                          {sending ? (
+                            <>
+                              <span className="spinner" /> Sending…
+                            </>
+                          ) : (
+                            'Send my side'
+                          )}
+                        </button>
+                        <button type="button" className="btn-ghost btn-sm" onClick={() => setReply(RESPONSE_EXAMPLES[role])}>
+                          Use example text
+                        </button>
+                      </div>
+                      {error && <p className="error-text">{error}</p>}
+                    </form>
+                  ) : view.state === 'awaiting_response' ? (
+                    <div className="stack" style={{ gap: 8 }}>
+                      <p className="small muted">No response yet.</p>
+                      <div className="row">
+                        <button className="btn-sm" onClick={switchToOther}>
+                          Demo: respond as {otherName}
+                        </button>
+                        <button className="btn-ghost btn-sm" onClick={adjudicateNow}>
+                          Demo: skip waiting
+                        </button>
+                      </div>
+                    </div>
+                  ) : view.state === 'safety_bypassed' ? (
+                    <p className="small faint">Not asked yet: a safety specialist handles this directly.</p>
+                  ) : (
+                    <p className="small faint">No response was given.</p>
+                  )}
                 </div>
               </div>
-            ) : (
-              <p className="muted">No response.</p>
-            )}
-          </section>
-        </div>
-
-        <aside className="card">
-          <div className="card-head">
-            <h3>Progress</h3>
-            {moving && <span className="spinner" />}
+            </section>
           </div>
-          {steps.length === 0 ? (
-            <p className="muted small">
-              <span className="spinner" /> Connecting…
-            </p>
-          ) : (
-            <div className="timeline">
-              {steps.map((e) => (
-                <div key={e.id} className="tl-item">
-                  <span className="tl-time">
-                    {new Date(e.t).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' })}
-                  </span>
-                  <div className={`tl-line${e.kind === 'error' ? ' error-text' : ''}`}>
-                    {e.kind === 'error'
-                      ? e.detail
-                      : e.detail?.includes('->')
-                        ? STATE_LABEL[e.detail.split('->')[1].trim() as CaseState] ?? e.detail
-                        : e.detail}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </aside>
+
+          <aside className="panel panel-pad stack" style={{ gap: 12 }}>
+            <span className="eyebrow">How this is decided</span>
+            <ul className="principles">
+              <li>Both of you are heard. Each side gets its own advocate, arguing from the same trip record.</li>
+              <li>The Judge rules on evidence and arguments. It never reads either person’s original words.</li>
+              <li>Every finding cites a piece of evidence you can open.</li>
+              <li>Refunds and fees come from Ryde’s published formula, computed in code, not chosen by the AI.</li>
+              <li>Anything uncertain, high-value, repeated or safety-related goes to a person.</li>
+            </ul>
+          </aside>
+        </div>
       </div>
-    </>
+    </EvidenceProvider>
   )
 }

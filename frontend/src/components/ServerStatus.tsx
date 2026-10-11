@@ -31,7 +31,7 @@ export function ServerStatus() {
 
   if (status === 'slow')
     return (
-      <div className="banner tone-progress">
+      <div className="banner tone-live">
         <span className="spinner" /> Waking the backend. It sleeps when idle and can take up to
         a minute to start.
       </div>

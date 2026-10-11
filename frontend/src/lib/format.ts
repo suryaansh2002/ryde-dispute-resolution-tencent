@@ -1,4 +1,4 @@
-import type { CaseState, Category, Outcome, RemedyType } from '../types/api'
+import type { CaseState, Category, Escalation, Outcome, RemedyType } from '../types/api'
 
 export const CATEGORY_LABEL: Record<Category, string> = {
   route_deviation: 'Route deviation',
@@ -72,3 +72,51 @@ export function outcomeLabel(outcome: string): string {
 export function remedyLabel(type: string): string {
   return REMEDY_LABEL[type as RemedyType] ?? type
 }
+
+export const clock = (iso: string) =>
+  new Date(iso).toLocaleTimeString(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  })
+
+export function duration(seconds: number | null | undefined): string {
+  if (seconds == null) return '—'
+  if (seconds < 90) return `${Math.round(seconds)} s`
+  if (seconds < 5400) return `${Math.round(seconds / 60)} min`
+  return `${(seconds / 3600).toFixed(1)} h`
+}
+
+export function ago(iso: string): string {
+  const s = (Date.now() - new Date(iso).getTime()) / 1000
+  if (s < 60) return 'just now'
+  return `${duration(s)} ago`
+}
+
+/** True when the deterministic gate or compliance sent the decision to a human. */
+export function routesToL2(esc: Escalation | null | undefined): boolean {
+  return Boolean(
+    esc && (esc.bucket_escalate || esc.confidence_escalate || esc.judge_requested_escalation || esc.compliance_veto),
+  )
+}
+
+/** Why a case is in front of a human, as short labels for the L2 queue. */
+export function whyLabels(item: { is_safety: boolean; escalation: Escalation | null }): { label: string; tone: Tone }[] {
+  if (item.is_safety) return [{ label: 'Safety', tone: 'bad' }]
+  const esc = item.escalation
+  if (!esc) return []
+  const out: { label: string; tone: Tone }[] = []
+  for (const r of esc.reasons ?? []) {
+    if (r.startsWith('bucket: repeat_filer')) out.push({ label: 'Repeat filer', tone: 'warn' })
+    if (r.startsWith('bucket: high_value')) out.push({ label: 'High-value fee', tone: 'warn' })
+    if (r.startsWith('bucket: safety')) out.push({ label: 'Safety', tone: 'bad' })
+  }
+  if (esc.confidence_escalate) out.push({ label: 'Low confidence', tone: 'warn' })
+  if (esc.judge_requested_escalation) out.push({ label: 'Judge asked', tone: 'neutral' })
+  if (esc.compliance_veto) out.push({ label: 'Compliance veto', tone: 'bad' })
+  return out
+}
+
+export const toneClass = (tone: Tone) =>
+  tone === 'progress' ? 'tone-live' : tone === 'neutral' ? '' : `tone-${tone}`

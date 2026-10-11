@@ -5,11 +5,15 @@ import type {
   Category,
   DecisionObject,
   DecisionResponse,
+  DemoScenario,
+  EvidenceIndex,
   EvidenceRef,
   L2QueueItem,
   Outcome,
   Persona,
+  PolicyTag,
   RecentCase,
+  Stats,
   Remedy,
   Role,
   Trip,
@@ -55,6 +59,11 @@ export const api = {
   trips: (userId: string) => request<Trip[]>(`/users/${userId}/trips`),
   userCases: (userId: string) => request<CaseSummary[]>(`/users/${userId}/cases`),
 
+  stats: () => request<Stats>('/stats'),
+  scenario: (category: Category) => request<DemoScenario>(`/demo/scenario?category=${category}`),
+  evidence: (caseId: string, view: 'operator' | 'party') =>
+    request<EvidenceIndex>(`/cases/${caseId}/evidence?view=${view}`),
+  policy: (policyId: string) => request<PolicyTag[]>(`/policy/${policyId}`),
   recentCases: (limit = 30) => request<RecentCase[]>(`/cases?limit=${limit}`),
   caseView: (caseId: string) => request<CaseView>(`/cases/${caseId}/view`),
   decision: (caseId: string) => request<DecisionResponse>(`/cases/${caseId}/decision`),
@@ -100,3 +109,5 @@ export const streamUrl = {
   case: (caseId: string) => `${API_URL}/events/cases/${caseId}`,
   l2: () => `${API_URL}/events/l2`,
 }
+
+export const evidenceContentUrl = (evidenceId: string) => `${API_URL}/evidence/${evidenceId}/content`
