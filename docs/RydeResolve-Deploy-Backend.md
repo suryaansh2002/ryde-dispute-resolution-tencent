@@ -1,8 +1,8 @@
-# RydeResolve — Deploy the Backend to Render
+# RydeResolve — Deploy to Render (backend) and Vercel (frontend)
 
 **Owner:** Dev B (@shiv0112), on your own Render account.
 **Status:** ready to deploy. The image builds and passes the end-to-end test locally. This is the only remaining part of step 2 in the [Execution Plan](RydeResolve-Execution-Plan.md).
-**Time:** about 15 minutes, plus about 5 minutes for the first build.
+**Time:** about 15 minutes for the backend, plus about 5 minutes for its first build; about 10 minutes for the frontend. Do the backend first, because the frontend needs its URL.
 
 When you're done, post the live URL in our chat and tick the checklist at the bottom.
 
@@ -93,7 +93,24 @@ You should get `: ping` comments every 15 seconds and the connection should stay
 - **Cold starts.** The free tier sleeps after 15 idle minutes, and the next request takes about a minute to wake it. Hit `/health` a couple of minutes before any demo or recording. An open live stream keeps it awake.
 - **Logs.** Render dashboard → service → Logs. Agent runs and tool calls are also in Logfire (project for `LOGFIRE_TOKEN`), service name `ryde-resolve-api`.
 - **The repo will move.** Before submission we rotate every key in `.env` (they're in git history) and publish a fresh public repo. When that happens, this service gets re-pointed to the new repo and its secrets replaced with the new ones. Don't spend time hardening anything tied to the current keys.
-- **Later.** Once the frontend exists, set `CORS_ORIGINS` to the Vercel URL. The frontend deploy (Vercel) will get its own handoff doc.
+
+## Part 2 — Frontend on Vercel
+
+The frontend (`frontend/`, React + Vite) is built and was tested end to end in a browser against the local backend. It needs the Render URL from Part 1.
+
+1. Vercel dashboard → **Add New → Project** → import this repo. The same private-repo access question applies: if Vercel can't see it, ask @suryaansh2002 to grant the Vercel GitHub app access to it.
+2. **Root Directory:** `frontend`. Framework preset: **Vite** (detected automatically). Build command `npm run build` and output `dist` are the defaults.
+3. **Environment variable:** `VITE_API_URL` = the Render URL from Part 1, e.g. `https://ryde-resolve-api-xxxx.onrender.com` with no trailing slash. It's baked in at build time, so if you change it later, redeploy.
+4. Deploy. `frontend/vercel.json` already rewrites every path to `index.html`, so deep links like `/trace/CASE-0001` load directly.
+5. Back on Render, set `CORS_ORIGINS` to the Vercel URL (e.g. `https://ryde-resolve.vercel.app`) and let it redeploy. Until then `*` works.
+6. **Walk the golden path in a browser** on the Vercel URL:
+   1. Personas → pick a rider. Pick one high in the list; they have dispute scenarios.
+   2. Pick a trip tagged *route deviation scenario* → **File a claim** → **Use example text** → **File claim**. About 20 seconds later the case shows *Awaiting response*.
+   3. **Demo: switch to … to respond** → **Use example text** → **Send response**. About 30 seconds later it shows *Decided* or *Human review*, with the decision document.
+   4. **Watch the agents →**: the trace page should show both advocates side by side and the Judge's ruling.
+   5. **L2 console**: if the case escalated, ratify it.
+
+   If the first page says it's waking the backend, wait for it: that's the free tier's cold start.
 
 ## Done checklist
 
@@ -101,4 +118,7 @@ You should get `: ping` comments every 15 seconds and the connection should stay
 - [ ] `/health` returns ok and `/demo/personas` returns data
 - [ ] `smoke_e2e` passes against the live URL with the expected table above
 - [ ] `/events/l2` holds the connection open with pings
-- [ ] Live URL shared with @suryaansh2002, and added to the Execution Plan (step 2) and README
+- [ ] Frontend live on Vercel with `VITE_API_URL` set; deep links load
+- [ ] `CORS_ORIGINS` on Render set to the Vercel URL
+- [ ] Golden path walked on the live URLs (file → respond → decision → trace → L2)
+- [ ] Both URLs shared with @suryaansh2002, and added to the Execution Plan and README

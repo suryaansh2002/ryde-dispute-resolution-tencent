@@ -22,7 +22,7 @@ from pydantic_ai import Agent, ModelRetry, RunContext
 
 from app.config import settings
 from app.rules.escalation import CONFIDENCE_THRESHOLD, matching_bucket_rules
-from app.schemas import Argument, CaseFile, JudgeVerdict, RemedyType
+from app.schemas import Argument, CaseFile, DecisionOutcome, JudgeVerdict, RemedyType
 from app.tools.evidence_lookup import evidence_index
 from app.tools.policy_rag import search_policy
 
@@ -166,6 +166,8 @@ async def escalate_to_l2(ctx: RunContext[JudgeDeps], reason: str) -> str:
     return "L2 review requested. Now return your best verdict."
 
 
+_UPHELD = {DecisionOutcome.CLAIM_UPHELD, DecisionOutcome.CLAIM_UPHELD_PARTIAL}
+
 # Where the money goes follows from the remedy type; it isn't the model's call.
 _DESTINATIONS = {
     RemedyType.FULL_REFUND: "original_payment_method",
@@ -219,6 +221,8 @@ async def validate_judge_citations(ctx: RunContext[JudgeDeps], out: JudgeVerdict
         problems.append("confidence must be between 0.0 and 1.0")
     if out.remedy.type != RemedyType.NO_ACTION and not (out.remedy.amount or 0) > 0:
         problems.append(f"remedy {out.remedy.type} needs a positive dollar amount")
+    if out.outcome in _UPHELD and not out.policy_applied:
+        problems.append("an upheld claim must name the policy it applies in policy_applied")
 
     if problems and ctx.retry < min(CITATION_CORRECTION_ATTEMPTS, ctx.max_retries):
         raise ModelRetry("Fix your verdict: " + "; ".join(problems))

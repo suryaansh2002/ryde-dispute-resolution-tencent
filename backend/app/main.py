@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import cases, decisions, demo, events, evidence, l2
 from app.config import settings
+from app.data.db import close_pools
 
 
 @asynccontextmanager
@@ -20,6 +21,7 @@ async def lifespan(_: FastAPI):
     )
     logfire.instrument_pydantic_ai()
     yield
+    await close_pools()
 
 
 app = FastAPI(title="RydeResolve backend", lifespan=lifespan)
