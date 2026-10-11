@@ -52,3 +52,9 @@ def search_policy(query: str, k: int = 3) -> list[PolicyTag]:
             scored.append((score, tag))
     scored.sort(key=lambda st: st[0], reverse=True)
     return [tag for _, tag in scored[:k]]
+
+
+def policy_clauses(policy_id: str) -> list[PolicyTag]:
+    """Every chunk of one policy section, in document order: what a cited POL-0N says."""
+    tags, *_ = _index()
+    return [t for t in tags if t.policy_id == policy_id]

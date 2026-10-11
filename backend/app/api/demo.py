@@ -8,10 +8,19 @@ from datetime import UTC, datetime, timedelta
 from fastapi import APIRouter, HTTPException, Query, status
 
 from app.data.db import get_connection
-from app.data.demo import list_personas, list_user_cases, list_user_trips, system_stats
+from app.data.demo import (
+    list_personas,
+    list_user_cases,
+    list_user_trips,
+    pick_scenario,
+    system_stats,
+)
 from app.rules.prevention import CLAIM_WINDOW_DAYS
+from app.tools.policy_rag import policy_clauses
 
 router = APIRouter(tags=["demo"])
+
+_CATEGORIES = "^(route_deviation|no_show_charge|property_damage|safety_incident)$"
 
 
 def _user_id(user_id: str) -> uuid.UUID:
@@ -70,3 +79,32 @@ async def stats() -> dict:
         return await system_stats(conn)
     finally:
         await conn.close()
+
+
+@router.get("/demo/scenario")
+async def demo_scenario(
+    category: str = Query(..., pattern=_CATEGORIES),
+) -> dict:
+    """One unclaimed trip that fits `category`, plus who would file it. Backs the landing
+    page's "run a demo case" buttons."""
+    conn = await get_connection()
+    try:
+        scenario = await pick_scenario(conn, category)
+    finally:
+        await conn.close()
+    if scenario is None:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            f"no unclaimed {category} trips left; regenerate the demo data",
+        )
+    return scenario
+
+
+@router.get("/policy/{policy_id}")
+async def policy_text(policy_id: str) -> list[dict]:
+    """The clauses of one policy section (e.g. POL-02), from the same corpus Policy RAG
+    searches, so a cited policy can be read in full."""
+    clauses = policy_clauses(policy_id)
+    if not clauses:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"no policy {policy_id!r}")
+    return [c.model_dump() for c in clauses]

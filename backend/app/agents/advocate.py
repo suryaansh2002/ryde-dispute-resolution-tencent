@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 
 from pydantic_ai import Agent, ModelRetry, RunContext
 
+from app.agents.retry import run_agent
 from app.config import settings
 from app.schemas import Argument, CaseFile, CaseRole
 from app.tools.evidence_lookup import evidence_index
@@ -181,5 +182,5 @@ async def run_advocate(
     prompt = render_case_file(case_file)
     if statements is not None:
         prompt = f"{prompt}\n\n{statements.render()}"
-    result = await agent.run(prompt, deps=deps)
+    result = await run_agent(agent, prompt, deps=deps)
     return AdvocateRun(result.output, deps.stripped_cites, deps.stripped_policy_cites)

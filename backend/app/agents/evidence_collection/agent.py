@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 from pydantic import BaseModel
 from pydantic_ai import Agent, ModelRetry, RunContext
 
+from app.agents.retry import run_agent
 from app.config import settings
 from app.data.db import TripBundle, fetch_trip_bundle, get_connection
 from app.schemas import (
@@ -227,7 +228,8 @@ async def run_evidence_collection(
         complainer_role=complainer_role, complainer_id=str(complainer_id),
         complainee_id=str(complainee_id),
     )
-    result = await evidence_collection_agent.run(
+    result = await run_agent(
+        evidence_collection_agent,
         f"case_id: {case_id}\ntrip_id: {trip_id}\ncategory: {triage_result.category}\n"
         f"tier: {triage_result.tier}",
         deps=deps,

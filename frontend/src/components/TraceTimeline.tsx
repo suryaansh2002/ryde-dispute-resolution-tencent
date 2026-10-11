@@ -1,40 +1,52 @@
 import type { ReactNode } from 'react'
-import { CATEGORY_LABEL } from '../lib/format'
+import { Ref } from '../lib/evidence'
+import { CATEGORY_LABEL, STATE_LABEL, clock } from '../lib/format'
+import { strippedRefs } from '../lib/strip'
 import type {
   Argument,
   CaseFile,
+  CaseState,
+  Category,
   DecisionObject,
   TraceEvent,
   TriageResult,
 } from '../types/api'
 import { ArgumentCard } from './ArgumentCard'
-import { DecisionCard } from './DecisionCard'
+import { Ruling } from './Ruling'
 
-const time = (iso: string) =>
-  new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' })
-
-const seconds = (ms?: number | null) => (ms ? ` · ${(ms / 1000).toFixed(1)}s` : '')
+const seconds = (ms?: number | null) => (ms ? `${(ms / 1000).toFixed(1)} s` : null)
 
 function Item({ event, children }: { event: TraceEvent; children: ReactNode }) {
   return (
     <div className="tl-item">
-      <span className="tl-time">{time(event.t)}</span>
-      <div>{children}</div>
+      <span className="tl-time">{clock(event.t)}</span>
+      <div className="stack" style={{ gap: 6 }}>
+        {children}
+      </div>
     </div>
   )
 }
 
-function TriageCard({ result }: { result: TriageResult }) {
+function Diamond() {
   return (
-    <article className="agent-card intake">
-      <header>
-        <span className="agent-name">Triage agent</span>
-      </header>
+    <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden style={{ flex: 'none' }}>
+      <rect x="2.5" y="2.5" width="7" height="7" transform="rotate(45 6 6)" fill="none" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  )
+}
+
+function TriageCard({ result, latency }: { result: TriageResult; latency?: number | null }) {
+  return (
+    <article className="card system">
+      <div className="card-head">
+        <span className="agent-label">Triage agent</span>
+        {seconds(latency) && <span className="tiny faint mono">{seconds(latency)}</span>}
+      </div>
       <div className="row">
-        <span className="badge tone-progress">{CATEGORY_LABEL[result.category] ?? result.category}</span>
-        <span className="badge">tier: {result.tier}</span>
-        <span className={`badge ${result.is_safety ? 'tone-bad' : 'tone-neutral'}`}>
-          {result.is_safety ? 'safety flag → human review' : 'no safety flag'}
+        <span className="badge">{CATEGORY_LABEL[result.category] ?? result.category}</span>
+        <span className="badge">severity: {result.tier}</span>
+        <span className={`badge ${result.is_safety ? 'tone-bad' : ''}`}>
+          {result.is_safety ? 'Safety flag: a person takes over' : 'No safety concern'}
         </span>
       </div>
     </article>
@@ -43,36 +55,74 @@ function TriageCard({ result }: { result: TriageResult }) {
 
 function EvidenceCard({ caseFile, latency }: { caseFile: CaseFile; latency?: number | null }) {
   const counts = [
-    `${caseFile.chat_log?.length ?? 0} chat messages`,
-    `${caseFile.gps_trace?.length ?? 0} GPS points`,
-    `${caseFile.photos?.length ?? 0} photos`,
-    `${caseFile.traffic_events?.length ?? 0} traffic events`,
-  ]
-  const policies = [...new Set((caseFile.policy_tags ?? []).map((t) => t.policy_id))]
+    [caseFile.chat_log?.length ?? 0, 'chat messages'],
+    [caseFile.gps_trace?.length ?? 0, 'GPS fixes'],
+    [caseFile.photos?.length ?? 0, 'photos'],
+    [caseFile.traffic_events?.length ?? 0, 'traffic events'],
+  ] as const
+  const policies = [...new Set((caseFile.policy_tags ?? []).map((t) => t.chunk_id))]
+  const keyRefs = ['ROUTE-COMPARISON', 'PICKUP-PROXIMITY', 'PAYMENT']
   return (
-    <article className="agent-card intake">
-      <header>
-        <span className="agent-name">Evidence collection agent</span>
-        <span className="small muted">case file assembled{seconds(latency)}</span>
-      </header>
-      <p className="small">{counts.join(' · ')}</p>
-      {policies.length > 0 && (
-        <div className="refs">
-          <span className="small muted">Policy tagged:</span>
-          {policies.map((p) => (
-            <span key={p} className="chip">
-              {p}
-            </span>
-          ))}
-        </div>
-      )}
+    <article className="card system">
+      <div className="card-head">
+        <span className="agent-label">Evidence collection agent</span>
+        {seconds(latency) && <span className="tiny faint mono">{seconds(latency)}</span>}
+      </div>
+      <p className="small">
+        Case file assembled from the trip record:{' '}
+        {counts.map(([n, label], i) => (
+          <span key={label}>
+            <strong className="num">{n}</strong> {label}
+            {i < counts.length - 1 ? ', ' : '.'}
+          </span>
+        ))}
+      </p>
+      <div className="refs">
+        {keyRefs.map((r) => (
+          <Ref key={r} id={r} />
+        ))}
+        {(caseFile.photos ?? []).map((p) => (
+          <Ref key={p.evidence_id} id={p.evidence_id} />
+        ))}
+        {policies.map((p) => (
+          <Ref key={p} id={p} />
+        ))}
+      </div>
     </article>
   )
 }
 
-type Block =
-  | { kind: 'single'; event: TraceEvent }
-  | { kind: 'advocates'; events: TraceEvent[] }
+/** "prevention: pass — ..." / "escalation gate: bucket=..., ..." → readable rule outcome. */
+function RuleLine({ detail }: { detail: string }) {
+  let label = detail
+  let tone = ''
+  if (detail.startsWith('prevention:')) {
+    const action = detail.replace('prevention: ', '').split(' — ')[0].split(' (')[0]
+    const rest = detail.includes(' — ') ? detail.split(' — ').slice(1).join(' — ') : ''
+    const pass = action === 'pass'
+    tone = pass ? '' : 'tone-warn'
+    label = pass
+      ? `Prevention rules: all six passed${detail.includes('repeat filer') ? ', repeat filer flagged for the gate' : ''}`
+      : `Prevention rules: ${action.replaceAll('_', ' ')}${rest ? `, ${rest}` : ''}`
+  } else if (detail.startsWith('escalation gate:')) {
+    const flagged = /bucket=always_escalate|confidence_escalate=True|judge_requested=True|veto/.test(detail)
+    tone = flagged ? 'tone-warn' : ''
+    label = flagged
+      ? 'Escalation gate and compliance: flagged, so the decision goes to a person'
+      : 'Escalation gate and compliance: all passed'
+  }
+  return (
+    <div className={`gate-line ${tone}`} title={detail}>
+      <Diamond />
+      <span>{label}</span>
+      <span className="tiny faint" style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }}>
+        no model
+      </span>
+    </div>
+  )
+}
+
+type Block = { kind: 'single'; event: TraceEvent } | { kind: 'advocates'; events: TraceEvent[] }
 
 const isAdvocate = (e: TraceEvent) =>
   e.kind === 'agent_output' && (e.agent === 'rider_advocate' || e.agent === 'driver_advocate')
@@ -82,70 +132,95 @@ function group(events: TraceEvent[]): Block[] {
   const blocks: Block[] = []
   for (const event of events) {
     const last = blocks[blocks.length - 1]
-    if (isAdvocate(event) && last?.kind === 'advocates' && last.events.length < 2) {
-      last.events.push(event)
-    } else if (isAdvocate(event)) {
-      blocks.push({ kind: 'advocates', events: [event] })
-    } else {
-      blocks.push({ kind: 'single', event })
-    }
+    if (isAdvocate(event) && last?.kind === 'advocates' && last.events.length < 2) last.events.push(event)
+    else if (isAdvocate(event)) blocks.push({ kind: 'advocates', events: [event] })
+    else blocks.push({ kind: 'single', event })
   }
   return blocks
 }
 
-function renderEvent(e: TraceEvent): ReactNode {
+function renderEvent(e: TraceEvent, category: Category | null): ReactNode {
   switch (e.kind) {
-    case 'state_transition':
+    case 'state_transition': {
+      const to = e.detail?.includes('->') ? (e.detail.split('->')[1].trim() as CaseState) : null
       return (
         <div className="tl-line">
-          {e.detail?.includes('->') ? (
+          {to ? (
             <>
-              state: <strong>{e.detail.split('->')[1].trim().replaceAll('_', ' ')}</strong>
+              → <strong>{STATE_LABEL[to] ?? to}</strong>
             </>
           ) : (
-            <strong>{e.detail}</strong>
+            <strong>{e.detail === 'response received' ? 'The other side responded' : e.detail}</strong>
           )}
         </div>
       )
+    }
     case 'rule_evaluation':
-      return <div className="tl-line mono">{e.detail}</div>
+      return <RuleLine detail={e.detail ?? ''} />
     case 'agent_output':
-      if (e.agent === 'triage') return <TriageCard result={e.output as unknown as TriageResult} />
+      if (e.agent === 'triage') return <TriageCard result={e.output as unknown as TriageResult} latency={e.latency_ms} />
       if (e.agent === 'evidence_collection')
         return <EvidenceCard caseFile={e.output as unknown as CaseFile} latency={e.latency_ms} />
       if (e.agent === 'judge')
-        return <DecisionCard decision={e.output as unknown as DecisionObject} />
+        return (
+          <>
+            <div className="agent-label" style={{ paddingTop: 2 }}>
+              Judge {seconds(e.latency_ms) && <span className="tiny faint mono">· {seconds(e.latency_ms)}</span>}
+            </div>
+            <Ruling
+              decision={e.output as unknown as DecisionObject}
+              category={category}
+              title="Judge’s ruling"
+              stripped={strippedRefs(e.detail)}
+            />
+          </>
+        )
       return <div className="tl-line">{e.agent} output</div>
     case 'escalation':
-      // The Judge's card above already lists the reasons; don't print them twice.
       return (
-        <div className="callout tone-warn">
-          <strong>Routed to the L2 human queue</strong> for a person to ratify or override.
+        <div className="banner tone-warn" style={{ margin: 0 }}>
+          <strong>Sent to the human review queue.</strong> A reviewer will ratify or override it.
         </div>
       )
     case 'l2_review':
       return (
-        <div className="stack">
-          <div className="callout tone-good">
-            <strong>L2 review:</strong> {e.detail}
+        <>
+          <div className="banner tone-good" style={{ margin: 0 }}>
+            <span>
+              <strong>Human review:</strong> {e.detail}
+            </span>
           </div>
           {e.output && (
-            <DecisionCard decision={e.output as unknown as DecisionObject} title="Final decision" />
+            <Ruling decision={e.output as unknown as DecisionObject} category={category} title="Final decision" gates={false} />
           )}
-        </div>
+        </>
       )
     case 'error':
       return (
-        <div className="callout tone-bad">
-          <strong>Pipeline error.</strong> {e.detail}
+        <div className="banner tone-bad" style={{ margin: 0 }}>
+          <span>
+            <strong>Pipeline error.</strong> {e.detail}
+          </span>
         </div>
       )
     default:
-      return <div className="tl-line">{e.kind}: {e.detail}</div>
+      return (
+        <div className="tl-line">
+          {e.kind}: {e.detail}
+        </div>
+      )
   }
 }
 
-export function TraceTimeline({ events, working }: { events: TraceEvent[]; working?: boolean }) {
+export function TraceTimeline({
+  events,
+  working,
+  category,
+}: {
+  events: TraceEvent[]
+  working?: boolean
+  category: Category | null
+}) {
   if (events.length === 0)
     return (
       <div className="empty">
@@ -157,7 +232,7 @@ export function TraceTimeline({ events, working }: { events: TraceEvent[]; worki
       {group(events).map((block) =>
         block.kind === 'single' ? (
           <Item key={block.event.id} event={block.event}>
-            {renderEvent(block.event)}
+            {renderEvent(block.event, category)}
           </Item>
         ) : (
           <Item key={block.events[0].id} event={block.events[0]}>
@@ -165,15 +240,12 @@ export function TraceTimeline({ events, working }: { events: TraceEvent[]; worki
               {[...block.events]
                 .sort((a, b) => Number(b.agent === 'rider_advocate') - Number(a.agent === 'rider_advocate'))
                 .map((e) => (
-                  <ArgumentCard
-                    key={e.id}
-                    argument={e.output as unknown as Argument}
-                    note={e.detail}
-                  />
+                  <ArgumentCard key={e.id} argument={e.output as unknown as Argument} note={e.detail} />
                 ))}
             </div>
-            <div className="small faint" style={{ marginTop: 4 }}>
-              Both advocates argued from the identical case file, in parallel{seconds(block.events[0].latency_ms)}
+            <div className="tiny faint">
+              Both advocates argued in parallel from the identical case file
+              {seconds(block.events[0].latency_ms) && ` · ${seconds(block.events[0].latency_ms)}`}
             </div>
           </Item>
         ),
@@ -181,7 +253,7 @@ export function TraceTimeline({ events, working }: { events: TraceEvent[]; worki
       {working && (
         <div className="tl-item">
           <span />
-          <div className="tl-line">
+          <div className="tl-line row">
             <span className="spinner" /> working…
           </div>
         </div>
