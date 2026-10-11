@@ -5,8 +5,15 @@ outcome. It sends the case to L2 with the reason attached. The checks enforce th
 doc's remedy rules (Part 1 §2–§4, §7) on whatever the Judge produced.
 """
 
-from app.rules.policy_math import PHOTO_ONLY_FEES, PROPERTY_DAMAGE_TIERS
-from app.schemas import CaseFile, DecisionOutcome, DisputeCategory, JudgeVerdict, RemedyType
+from app.rules.policy_math import PHOTO_ONLY_FEES, PROPERTY_DAMAGE_TIERS, no_show_fees
+from app.schemas import (
+    CaseFile,
+    CaseRole,
+    DecisionOutcome,
+    DisputeCategory,
+    JudgeVerdict,
+    RemedyType,
+)
 from app.tools.evidence_lookup import ROUTE_COMPARISON, evidence_index
 from app.tools.image_analysis import supported_tier
 
@@ -24,7 +31,6 @@ _ALLOWED_REMEDIES: dict[DisputeCategory, set[RemedyType]] = {
     DisputeCategory.PROPERTY_DAMAGE: {RemedyType.CLEANING_REPAIR_FEE, RemedyType.NO_ACTION},
 }
 
-_NO_SHOW_FEE_TYPES = {"no_show_fee", "cancellation_fee", "waiting_fee"}
 _NOT_UPHELD = {DecisionOutcome.CLAIM_DENIED, DecisionOutcome.DECLINED_INSUFFICIENT_EVIDENCE}
 
 
@@ -38,6 +44,18 @@ def compliance_violations(case_file: CaseFile, verdict: JudgeVerdict) -> list[st
         violations.append(f"outcome {verdict.outcome} needs a remedy, got no_action")
     if verdict.outcome not in _NOT_UPHELD and not verdict.policy_applied:
         violations.append("an upheld claim must name the policy it applied")
+
+    if (
+        case_file.complainer_role == CaseRole.DRIVER
+        and verdict.outcome not in _NOT_UPHELD
+        and remedy.type == RemedyType.NO_SHOW_FEE_WAIVER
+    ):
+        # A waiver returns the rider's fee: it's what the rider wins, never the remedy for
+        # a driver's upheld claim. The Judge has the winner and the outcome reversed.
+        violations.append(
+            "a no-show fee waiver favours the rider, so it can't be the remedy for an "
+            "upheld claim the driver filed"
+        )
 
     allowed = _ALLOWED_REMEDIES.get(case_file.category, {RemedyType.NO_ACTION})
     if remedy.type not in allowed:
@@ -69,10 +87,7 @@ def compliance_violations(case_file: CaseFile, verdict: JudgeVerdict) -> list[st
                     f"(${PROPERTY_DAMAGE_TIERS[tier]:.0f}) the photos show"
                 )
         elif remedy.type == RemedyType.NO_SHOW_FEE_WAIVER:
-            fees = sum(
-                float(f.get("amount", 0)) for f in case_file.payment.add_on_fees
-                if f.get("type") in _NO_SHOW_FEE_TYPES
-            )
+            fees = no_show_fees(case_file.payment.add_on_fees)
             if fees == 0:
                 violations.append("no cancellation/waiting fee on this trip to waive")
             elif amount > fees + 0.005:

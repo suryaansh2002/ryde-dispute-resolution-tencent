@@ -38,6 +38,7 @@ Four principles apply across every category:
 **Justified deviation exceptions:** a deviation is justified, and no refund is owed regardless of magnitude, if any of the following is evidenced:
 
 - A recorded road closure or traffic incident along the optimal route during the trip window (checked against `traffic_events`).
+  *(Not Ryde-sourced, our own test)*: "along the optimal route" means within 2 km of the planned route geometry, with the incident's time window overlapping the trip. It is computed in code, so no agent judges the distance.
 - The rider requested the detour in the chat log (e.g., an added stop, a specific route preference) — note that a *disclosed and accepted* destination change should route through Ryde's real $3.00 add/edit-destination mechanism above rather than reach this dispute flow at all; this exception exists for the case where the request was informal (chat only, no in-app flow used).
 - A safety-related detour (construction, accident scene, flagged unsafe area).
 

@@ -1,5 +1,5 @@
-"""Decision fetch, manual adjudication trigger, and the golden-case suite endpoint
-(system design §4)."""
+"""Decision fetch and manual adjudication trigger (system design §4). The golden-case
+suite endpoint lives in app/api/golden.py."""
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
@@ -54,8 +54,3 @@ async def adjudicate_case(case_id: str) -> AdjudicationResponse:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
     return adjudication_response(result)
 
-
-@router.post("/golden-run")
-async def run_golden_cases() -> dict:
-    """Trigger the golden-case suite, computing real dashboard numbers."""
-    raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED)

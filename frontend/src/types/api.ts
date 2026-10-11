@@ -283,3 +283,40 @@ export interface DamageFinding {
   confidence: number
   tier: DamageTier
 }
+
+export interface GoldenResult {
+  case_id: string | null
+  category: Category
+  expected: { outcome: string; remedy?: { type: string; amount?: number; merit_fraction?: number }; complainer_role?: Role }
+  actual: {
+    state: CaseState | null
+    outcome?: string
+    remedy?: Remedy
+    confidence?: number
+    route_refund?: number
+    escalation_reasons?: string[]
+    error?: string
+  }
+  passed: boolean
+  why: string
+  seconds: number
+  ran_at: string
+}
+
+export interface GoldenReport {
+  total: number
+  run: number
+  passed: number
+  decided_automatically: number
+  sent_to_a_person: number
+  median_seconds: number | null
+  by_category: Partial<Record<Category, { total: number; run: number; passed: number }>>
+  cases: {
+    golden_id: string
+    category: Category
+    expected: GoldenResult['expected']
+    claim_text: string | null
+    result: GoldenResult | null
+  }[]
+  status: { running: boolean; started_at: string | null; finished_at: string | null; total: number; done: number; errors: string[] }
+}
