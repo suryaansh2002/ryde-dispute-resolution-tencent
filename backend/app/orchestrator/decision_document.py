@@ -61,7 +61,8 @@ def render_decision_document(decision: DecisionObject, case_file: CaseFile) -> s
         "",
     ]
     for i, f in enumerate(decision.reasoning, start=1):
-        lines.append(f"{i}. {f.finding} *(evidence: {', '.join(f.cites)})*")
+        cites = f" *(evidence: {', '.join(f.cites)})*" if f.cites else ""
+        lines.append(f"{i}. {f.finding}{cites}")
     if esc.routes_to_l2 and not decision.human_ratified:
         lines += ["", "## Why this went to human review", ""]
         lines += [f"- {r}" for r in esc.reasons]

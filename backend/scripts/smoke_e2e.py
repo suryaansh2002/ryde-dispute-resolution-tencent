@@ -166,6 +166,23 @@ async def seed() -> tuple[list[dict], dict]:
     return scenarios, created
 
 
+async def leftover_smoke_data() -> dict:
+    """Everything a previous run left behind (crashed, or run with --keep)."""
+    conn = await get_connection()
+    try:
+        rows = await conn.fetch(
+            "SELECT id, rider_id, driver_id FROM trips WHERE category_hint = 'smoke'")
+    finally:
+        await conn.close()
+    keys = [o["Key"] for o in _client().list_objects_v2(
+        Bucket=settings.object_storage_bucket, Prefix="evidence/smoke-").get("Contents", [])]
+    return {
+        "trips": [r["id"] for r in rows],
+        "users": list({u for r in rows for u in (r["rider_id"], r["driver_id"])}),
+        "objects": keys,
+    }
+
+
 async def cleanup(created: dict) -> None:
     conn = await get_connection()
     try:
@@ -208,7 +225,16 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", default="http://localhost:8000")
     parser.add_argument("--keep", action="store_true", help="don't delete the seeded data")
+    parser.add_argument("--cleanup-only", action="store_true",
+                        help="delete data left by earlier --keep or crashed runs, then exit")
     args = parser.parse_args()
+
+    if args.cleanup_only:
+        leftovers = asyncio.run(leftover_smoke_data())
+        asyncio.run(cleanup(leftovers))
+        trips, objects = len(leftovers["trips"]), len(leftovers["objects"])
+        print(f"removed {trips} smoke trips and {objects} objects")
+        return
 
     scenarios, created = asyncio.run(seed())
     ok = True

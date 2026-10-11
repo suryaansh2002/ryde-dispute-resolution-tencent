@@ -13,6 +13,8 @@ from app.schemas import CaseFile, DecisionObject
 from app.schemas.common import CaseRole, DisputeCategory
 from app.schemas.trace import AgentName, TraceEvent, TraceEventKind
 
+TRACE_CHANNEL = "trace_events"
+
 
 async def get_trip(conn: asyncpg.Connection, trip_id: str) -> dict[str, Any] | None:
     row = await conn.fetchrow("SELECT * FROM trips WHERE id = $1", trip_id)
@@ -186,6 +188,9 @@ async def record_trace_event(
         case_id, event.t, kind.value, agent.value if agent else None, detail, latency_ms,
         json.dumps(output) if output is not None else None,
     )
+    # Wakes any open SSE stream (app/sse/stream.py). The stream re-reads from the table,
+    # so the payload is just a hint and a missed notification costs only a short delay.
+    await conn.execute("SELECT pg_notify($1, $2)", TRACE_CHANNEL, f"{case_id}:{row_id}")
     return event.model_copy(update={"id": row_id})
 
 
@@ -194,3 +199,33 @@ def trace_emitter(conn: asyncpg.Connection):
     async def emit(event: TraceEvent) -> None:
         await record_trace_event(conn, event.case_id, event.kind, detail=event.detail)
     return emit
+
+
+async def list_l2_queue(conn: asyncpg.Connection) -> list[dict[str, Any]]:
+    """Cases waiting on a human: escalated by the gate, or safety-bypassed at intake.
+    Safety first, then oldest first."""
+    rows = await conn.fetch(
+        """SELECT c.id, c.state, c.category, c.tier, c.is_safety, c.created_at, c.updated_at,
+                  c.claim_text,
+                  complainer.display_name AS complainer_name, complainer.role AS complainer_role,
+                  complainee.display_name AS complainee_name,
+                  d.outcome, d.remedy, d.confidence, d.escalation, d.policy_applied
+           FROM cases c
+           JOIN users complainer ON complainer.id = c.complainer_id
+           JOIN users complainee ON complainee.id = c.complainee_id
+           LEFT JOIN LATERAL (
+               SELECT * FROM decisions WHERE case_id = c.id ORDER BY created_at DESC LIMIT 1
+           ) d ON true
+           WHERE c.state IN ('escalated', 'safety_bypassed')
+           ORDER BY (c.state = 'safety_bypassed') DESC, c.updated_at"""
+    )
+    queue = []
+    for r in rows:
+        item = dict(r)
+        for key in ("remedy", "escalation"):
+            if isinstance(item[key], str):
+                item[key] = json.loads(item[key])
+        if item["confidence"] is not None:
+            item["confidence"] = float(item["confidence"])
+        queue.append(item)
+    return queue

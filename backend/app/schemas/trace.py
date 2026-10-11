@@ -11,6 +11,7 @@ class TraceEventKind(StrEnum):
     AGENT_COMPLETE = "agent_complete"
     AGENT_OUTPUT = "agent_output"
     ESCALATION = "escalation"
+    L2_REVIEW = "l2_review"
 
 
 class AgentName(StrEnum):

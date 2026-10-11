@@ -1,10 +1,28 @@
+from contextlib import asynccontextmanager
+
+import logfire
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import cases, decisions, demo, events, evidence, l2
 from app.config import settings
 
-app = FastAPI(title="RydeResolve backend")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    # Every agent run, tool call and model request becomes a Logfire span (system design
+    # §6.3). Configured at server startup rather than import time, so tests that build a
+    # TestClient without starting the app don't send spans. Without a token, nothing is
+    # sent and nothing in the request path depends on Logfire.
+    logfire.configure(
+        token=settings.logfire_token or None, service_name="ryde-resolve-api",
+        send_to_logfire="if-token-present", console=False,
+    )
+    logfire.instrument_pydantic_ai()
+    yield
+
+
+app = FastAPI(title="RydeResolve backend", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o.strip()],

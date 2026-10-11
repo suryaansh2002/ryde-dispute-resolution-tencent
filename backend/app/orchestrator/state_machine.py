@@ -39,7 +39,8 @@ TRANSITIONS: dict[CaseState, set[CaseState]] = {
     # L2 ratification (or override) finalizes an escalated case.
     CaseState.ESCALATED: {CaseState.DECIDED},
     CaseState.DECIDED: set(),
-    CaseState.SAFETY_BYPASSED: set(),
+    # Safety cases never reach an agent; only an L2 reviewer can decide them.
+    CaseState.SAFETY_BYPASSED: {CaseState.DECIDED},
     CaseState.DECLINED_INSUFFICIENT_EVIDENCE: set(),
 }
 
