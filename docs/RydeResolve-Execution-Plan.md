@@ -61,7 +61,10 @@ Done: `backend/Dockerfile` + root `render.yaml` Blueprint (Ohio, next to Neon), 
 - Run the data generator at full scale (200 trips) against Neon.
 - Small demo endpoints so the UI can list personas and their trips.
 
-### Step 3 — Make it visible (~0.5 day)
+### Step 3 — Make it visible (~0.5 day) — ✅ DONE 2026-10-11
+
+Logfire spans every agent run (configured at server startup). SSE: `/events/cases/{id}` replays a case's full trace and then streams live; `/events/l2` streams queue arrivals. Both are resumable via `Last-Event-ID`. Postgres stays the source of truth, woken by `pg_notify`. That's a deliberate change from the in-process queue: it also works across multiple workers. Pulled forward from step 4: the L2 backend (`GET /l2/queue`, `POST /l2/cases/{id}/ratify` with ratify/override; overrides still pass compliance). Verified on a real escalated case: streamed live, ratified, final.
+
 - Logfire (`logfire.configure()` + `instrument_pydantic_ai()`).
 - A trace event bus plus SSE endpoints (`/events/cases/{id}`, `/events/l2`). The events are already written to Postgres; they just need streaming.
 
