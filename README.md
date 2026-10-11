@@ -1,56 +1,105 @@
 # RydeResolve
 
-A multi-agent dispute resolution system for Ryde's ride-hailing platform, built for the Tencent hackathon. RydeResolve automatically investigates and recommends fair, evidence-grounded, symmetric resolutions for rider/driver disputes — instead of the usual all-or-nothing pipeline where cheap claims get rubber-stamped and consequential ones get decided without a real hearing.
+A multi-agent dispute resolution system for Ryde's ride-hailing platform, built for the Tencent hackathon. Every rider/driver dispute gets a fair hearing: one AI advocate for the rider, one for the driver, a Judge that rules on the evidence, and plain-code gates that send anything uncertain, high-value, repeated or safety-related to a person. Every finding cites a piece of evidence you can open.
 
-**Scope:** three of Ryde's four dispute categories — Route Deviation, No-Show Charge, and Property Damage. Safety Incidents are always routed straight to a human reviewer, never auto-decided.
+**Scope:** three of Ryde's four dispute categories: Route Deviation, No-Show Charge and Property Damage. Safety Incidents always go straight to a human reviewer and are never decided by an agent.
+
+![The system trace for a route-deviation case: the live pipeline, both parties' statements, and the trace](docs/screenshots/02-trace-route.png)
+
+## Results
+
+The **golden run** files 22 labelled cases through the full pipeline with real model calls and checks each verdict against a label written from the synthetic data's ground truth: the real detour, the real GPS, the real mess.
+
+| | |
+|---|---|
+| Verdicts matching the label | **22 / 22** in the latest run. Tuning progression: 14 → 19 → 21 → 21 → 22 |
+| Decided with no person involved | 12 of 22. The other 10 are safety reports, high-value fees, repeat filers, and cases the Judge was unsure of |
+| Median time, claim to verdict | about 40 seconds |
+| Tokens per fully argued case | about 70–110K input and 3K output across 6 model calls. A safety report uses about 0.8K, because it stops at Triage |
+
+Run it yourself from the **Accuracy** page, or with `POST /golden-run`. Per-call token usage is recorded in the `llm_usage` table.
 
 ## How it works
 
-A claim flows through five `pydantic-ai` agents, wired together by deterministic orchestrator code and gates:
+![Pipeline: agents are circles, deterministic rules are dashed, people are amber](docs/diagrams/pipeline.png)
 
-1. **Triage Agent** — categorizes the claim and flags safety incidents.
-2. **Prevention rules** (deterministic) — duplicate/malformed/safety/evidence/velocity/claim-window checks; can hard-stop a case before any further reasoning.
-3. **Evidence Collection Agent** — assembles one canonical `CaseFile` (chat logs, photos, GPS/telemetry, payment data, behavior profiles) from Postgres and Neon Object Storage, with an output validator confirming every reference is real.
-4. **Rider Advocate & Driver Advocate** (parallel) — each builds and cites its side's case against the identical `CaseFile`.
-5. **Judge** — weighs both arguments and produces a `DecisionObject` with a confidence score.
+Deterministic orchestrator code wires five `pydantic-ai` agents together; agents never call each other.
 
-That decision passes a two-phase deterministic escalation gate (confidence threshold + risk-bucket classification) and a compliance check before becoming a final decision document. Anything that fails escalation, or is flagged safety-related upfront, goes to a human (L2) reviewer instead.
+1. **Triage Agent** reads the claim, sets the category and severity, and flags safety. Safety reports leave the automated system here.
+2. **Prevention Rules** are six deterministic checks with no model: duplicate, malformed, safety hard-stop, required evidence, repeat filer, and the 30-day window.
+3. **Evidence Collection Agent** assembles one `CaseFile` from Postgres and object storage. It is the only agent with data access. Every item gets a citable ref (`MSG-0459`, `EV-0035`, `ROUTE-COMPARISON`, ...). Policy tests are computed in code rather than estimated by a model:
+   - planned vs driven distance, and the refund formula;
+   - the closest GPS approach to the pickup;
+   - whether a traffic incident lies on the planned route.
+4. **Image Analysis** grades each damage photo with a vision call: what kind of mess, and how much of the seat or floor it covers. Code maps that to Ryde's fee tier, so the model never picks the fee.
+5. **Rider Advocate and Driver Advocate** run in parallel on the identical case file. A citation validator strips any claim that doesn't resolve to real evidence.
+6. **Judge** weighs both arguments and the evidence. It never sees the original complaint text. Dollar amounts that the policy fixes are filled in code.
+7. The **escalation gate** runs on every case. It escalates when confidence is below 0.6, or when the case falls in a risk bucket: repeat filer, damage fee of $120 or more, or safety.
+8. The **compliance check** can veto a decision but never write one.
 
-## Architecture at a glance
+Anything flagged goes to the **human review** queue, where a reviewer ratifies or overrides the recommendation, with a structured reason.
 
-- **Frontend:** React (Vite) + TypeScript, static bundle on Vercel — rider panel, driver panel, live system trace panel, and an L2 console, all driven by one shared SSE stream per case.
-- **Backend:** Python + FastAPI on Render — one service owning orchestration, deterministic rules, and all five agents.
-- **Agents:** built on `pydantic-ai` (model: `groq:qwen/qwen3.8-27b`), model calls via Groq, fully instrumented with Pydantic Logfire (auto-captured spans for every agent run and tool call).
-- **Data:** Postgres + pgvector (Neon) for structured data and policy-clause retrieval; Neon Object Storage — same Neon project/branch, an S3-compatible bucket (`ryde-resolve`) — for evidence photos/audio and decision-document exports.
-- **Transport:** REST for request/response actions, Server-Sent Events for everything live (trace updates, status changes, new-case alerts).
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/03-evidence-drawer.png" alt="Clicking a citation opens the evidence: the planned and driven route on a map"><br><sub>Any citation opens the evidence it points to.</sub></td>
+<td width="50%"><img src="docs/screenshots/05-image-analysis-dark.png" alt="Image Analysis grading a damage photo, dark theme"><br><sub>Image Analysis: the model says what it sees, and code maps that to the tier.</sub></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/06-human-review.png" alt="Human review queue with reasons each case needs a person"><br><sub>Human review: why each case needs a person, the agents' recommendation, gate checks.</sub></td>
+<td><img src="docs/screenshots/07-accuracy.png" alt="Accuracy page: 22 of 22 golden cases"><br><sub>Accuracy: the golden run, case by case.</sub></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/08-party-decision.png" alt="The rider's view of a decision"><br><sub>What the rider sees: progress, the ruling, and how it was decided.</sub></td>
+<td><img src="docs/screenshots/01-landing.png" alt="Landing page with one-click demo cases"><br><sub>One-click demo cases for all four categories.</sub></td>
+</tr>
+</table>
 
-Full diagrams and rationale live in [`docs/RydeResolve-System-Design.md`](docs/RydeResolve-System-Design.md).
+## Architecture
+
+![Deployment: Vercel frontend, Render FastAPI backend, Neon Postgres and object storage, Groq, Logfire](docs/diagrams/deployment.png)
+
+- **Frontend:** React (Vite) + TypeScript, a static bundle on Vercel. It has:
+  - a landing page with demo cases;
+  - Rider and Driver panels;
+  - a live System Trace with an evidence drawer;
+  - the Human review console;
+  - the Accuracy page.
+
+  It has light and dark themes. See [`frontend/README.md`](frontend/README.md).
+- **Backend:** Python + FastAPI on Render: one service owning orchestration, the deterministic rules, and all agent calls.
+- **Agents:** `pydantic-ai` on Groq (`qwen/qwen3.8-27b`, text and vision), instrumented with Pydantic Logfire (every agent run and tool call).
+- **Data:** Neon Postgres + pgvector (trips, cases, trace events, decisions, golden cases, LLM usage). Evidence photos are in Neon Object Storage, in the same project.
+- **Transport:** REST for actions; Server-Sent Events for everything live, backed by Postgres `LISTEN/NOTIFY` and resumable with `Last-Event-ID`.
+
+Policy figures are labelled as either real Ryde-sourced figures (no-show fee $4.50, cleaning-fee caps $40/$120/$200, the 30-day window) or our own design choices (the route-deviation tiers, the 100 m arrival radius, the 2 km traffic-match radius). See the [policy doc](docs/RydeResolve-Policy-and-Prevention-Rules.md).
 
 ## Documentation
 
 | Document | Covers |
 |---|---|
-| [System Design & Architecture](docs/RydeResolve-System-Design.md) | Client/backend/data-layer design, the five-agent roster, escalation gates, deployment architecture, and submission-requirements mapping |
-| [Data Sources & Generation Strategy](docs/RydeResolve-Data-Sources-and-Strategy.md) | Which data the architecture needs, where it comes from (real API, synthetic, or semi-dummy), new Postgres tables, and the synthetic-dataset generation pipeline |
-| [Dispute Resolution Policy & Prevention Rules](docs/RydeResolve-Policy-and-Prevention-Rules.md) | The actual policy corpus used for Policy RAG, and the six deterministic Prevention Rules, each labeled as either real-Ryde-sourced or an invented design choice |
-| [Execution Plan](docs/RydeResolve-Execution-Plan.md) | **Current** plan to submission: where we are, the remaining steps in order, decisions taken, and what needs a person |
-| [CodeBuddy / WorkBuddy proof](docs/RydeResolve-CodeBuddy-WorkBuddy-Proof.md) | The hackathon's mandatory tooling proof: setup, real tasks to do in CodeBuddy/WorkBuddy, what to capture, the write-up (owner: Dev B) |
-| [Deploy (Render + Vercel)](docs/RydeResolve-Deploy-Backend.md) | Step-by-step deploy of the backend (Render) and frontend (Vercel): secrets, smoke test, golden-path walkthrough, done checklist (owner: Dev B) |
-| [Development Roadmap](docs/RydeResolve-Development-Roadmap.md) | Two-developer, ~14-day build plan with day-by-day ownership, phasing, risks, and the demo-ready definition of done |
+| [System Design & Architecture](docs/RydeResolve-System-Design.md) | Client/backend/data-layer design, the five-agent roster, escalation gates, deployment, submission-requirements mapping |
+| [Dispute Resolution Policy & Prevention Rules](docs/RydeResolve-Policy-and-Prevention-Rules.md) | The policy corpus used for Policy RAG and the six Prevention Rules, each labelled real-Ryde-sourced or our own |
+| [Data Sources & Generation Strategy](docs/RydeResolve-Data-Sources-and-Strategy.md) | Where each data point comes from (real API, synthetic, semi-dummy) and the synthetic-dataset pipeline |
+| [Execution Plan](docs/RydeResolve-Execution-Plan.md) | **Current** plan to submission: what's done, decisions taken, what needs a person |
+| [Deploy (Render + Vercel)](docs/RydeResolve-Deploy-Backend.md) | Step-by-step deploy, smoke test, golden-path walkthrough |
+| [CodeBuddy / WorkBuddy proof](docs/RydeResolve-CodeBuddy-WorkBuddy-Proof.md) | The hackathon's mandatory tooling proof: tasks and what to capture |
+| [Development Roadmap](docs/RydeResolve-Development-Roadmap.md) | The original two-developer, day-by-day plan (superseded for sequencing by the Execution Plan) |
 
-## Deployment (all free tier)
-
-Vercel (frontend) + Render (backend) + Neon (Postgres/pgvector + Object Storage, one project) + Pydantic Logfire (observability), targeting effectively-zero-cost hosting reachable by hackathon judges. Neon covers both the database and evidence object storage, so there's no separate object-storage provider (previously Cloudflare R2) to run.
-
-## Status
-
-**Working end to end on real infrastructure** (Neon + Groq). A claim filed in the browser goes through Triage → Prevention rules → Evidence Collection → the other party's response → both advocates in parallel → Judge → escalation gate → compliance check → a decision, or the L2 human queue. Every step streams live to the System Trace page. 119 backend tests; the frontend is tested in a real browser. Deployment to Render + Vercel is documented in [`docs/RydeResolve-Deploy-Backend.md`](docs/RydeResolve-Deploy-Backend.md). Current plan and remaining work: [`docs/RydeResolve-Execution-Plan.md`](docs/RydeResolve-Execution-Plan.md).
-
-### Run it locally
+## Run it locally
 
 ```bash
 cd backend && uv sync && uv run uvicorn app.main:app --port 8000      # needs the root .env
 cd frontend && npm install && npm run dev                             # http://localhost:5173
 ```
 
-The database already holds 200 synthetic trips. To regenerate: `cd backend && uv run python -m data_generation.pipeline.generate --count 200 --seed 42`.
+- **Database:** Neon already holds 200 synthetic trips, 65 users and 22 golden cases. Schema: `backend/migrations/0001_init.sql` and `0002_llm_usage.sql`.
+- **Dates:** before a demo, run `uv run python -m scripts.shift_dates` from `backend/` so every trip is inside the 30-day claim window.
+- **Checks:**
+  - `uv run pytest`: 160+ tests, no network.
+  - `uv run python -m scripts.smoke_e2e`: three scenarios end to end against a running API.
+  - `POST /golden-run`: the full labelled suite.
+- **Regenerate the dataset:** `cd backend && uv run python -m data_generation.pipeline.generate --count 200 --seed 42`.
+
+## Deployment (all free tier)
+
+Vercel (frontend) + Render (backend) + Neon (Postgres/pgvector + object storage) + Pydantic Logfire. Steps are in [`docs/RydeResolve-Deploy-Backend.md`](docs/RydeResolve-Deploy-Backend.md).

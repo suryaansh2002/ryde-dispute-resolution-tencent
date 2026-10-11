@@ -29,15 +29,13 @@ from app.config import settings
 from app.data.db import get_connection
 from app.tools.object_storage import _client, upload_object
 from data_generation.pipeline.geo import interpolate_gps_trace, perturb_route
+from data_generation.pipeline.photo_render import render_seat_photo
 
 START = (1.3521, 103.8198)
 END = (1.3721, 103.8468)
 OPTIMAL = {"type": "LineString", "coordinates": [[START[1], START[0]], [END[1], END[0]]]}
-_PLACEHOLDER_PNG = bytes.fromhex(
-    "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489"
-    "0000000a49444154789c6360000002000100ffff03000006000557bfabd4000000"
-    "0049454e44ae426082"
-)
+# A rendered rear seat with a coffee spill: Image Analysis should grade it minor ($40).
+SPILL_JPG = render_seat_photo("minor", 1)
 
 
 async def _user(conn, role, name, disputes_30d=0):
@@ -148,8 +146,8 @@ async def seed() -> tuple[list[dict], dict]:
             ("driver", "You spilled your drink all over the back seat."),
             ("rider", "Sorry, it was an accident."),
         ])
-        key = f"evidence/smoke-{trip}/spill.png"
-        hash_ = upload_object(key, _PLACEHOLDER_PNG, "image/png")
+        key = f"evidence/smoke-{trip}/spill.jpg"
+        hash_ = upload_object(key, SPILL_JPG, "image/jpeg")
         created["users"] += [rider, driver]
         created["trips"].append(trip)
         created["objects"].append(key)

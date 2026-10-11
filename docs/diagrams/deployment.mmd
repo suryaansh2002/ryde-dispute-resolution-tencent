@@ -1,0 +1,40 @@
+flowchart TB
+    subgraph users [People]
+        party[Riders and drivers]
+        reviewer[L2 reviewer]
+        judges[Judges / engineers]
+    end
+    subgraph vercel [Vercel · static]
+        web[React + Vite + TypeScript<br/>party panels · system trace<br/>human review · accuracy]
+    end
+    subgraph render [Render · FastAPI]
+        api[REST API]
+        sse[SSE stream<br/>per case + L2 queue]
+        orch[Orchestrator<br/>state machine]
+        rules[Deterministic rules<br/>prevention · escalation · compliance]
+        agents[5 pydantic-ai agents<br/>+ Image Analysis tool]
+    end
+    subgraph neon [Neon · one project]
+        pg[(Postgres + pgvector<br/>trips · cases · trace_events<br/>decisions · llm_usage · golden_cases)]
+        obj[(Object Storage<br/>evidence photos)]
+    end
+    groq[Groq<br/>qwen3.8-27b · text + vision]
+    logfire[Pydantic Logfire<br/>every agent run + tool call]
+
+    party & reviewer & judges --> web
+    web -- REST --> api
+    sse -- live events --> web
+    api --> orch --> rules
+    orch --> agents
+    agents --> groq
+    agents -. spans .-> logfire
+    orch --> pg
+    pg -- LISTEN/NOTIFY --> sse
+    agents -- Evidence Collection only --> obj
+
+    classDef store fill:#eef0f4,stroke:#10141c,stroke-width:1.5px,color:#10141c
+    classDef ext fill:#ffffff,stroke:#79808f,stroke-width:1.5px,stroke-dasharray:4 3,color:#10141c
+    classDef rule fill:#eef0f4,stroke:#10141c,stroke-width:1.5px,stroke-dasharray:4 3,color:#10141c
+    class pg,obj store
+    class groq,logfire ext
+    class rules rule
