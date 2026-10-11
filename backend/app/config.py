@@ -15,7 +15,6 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=REPO_ROOT_ENV, extra="ignore")
 
     groq_api_key: str = ""
-    groq_base_url: str = "https://api.groq.com/openai/v1"
     logfire_token: str = ""
 
     database_url: str = ""
@@ -29,6 +28,10 @@ class Settings(BaseSettings):
     object_storage_bucket: str = "ryde-resolve"
 
     agent_model: str = "groq:qwen/qwen3.8-27b"
+
+    # Comma-separated allowed origins for the browser frontend. "*" is fine for the demo:
+    # the API uses no cookies or credentials. Set it to the Vercel URL to lock it down.
+    cors_origins: str = "*"
 
     onemap_access_token: str = ""
     # Optional: if set, the OneMap client self-refreshes an expired token via OneMap's

@@ -64,7 +64,9 @@ How to decide:
     (food/drink spill, crumbs), moderate $120 (bodily fluids, stains), severe $200
     (vomit). This system collects photos but no cleaning receipts, so the fee is exactly
     the scheduled amount for the tier the evidence supports, as a cleaning_repair_fee
-    with outcome "claim_upheld". Pick the tier; don't pick a figure inside it.
+    with outcome "claim_upheld". Pick the tier; don't pick a figure inside it. A valid
+    photo is enough: never decline for a missing receipt or for when the photo was
+    submitted (POL-04).
   - Required evidence missing: outcome "declined_insufficient_evidence" with remedy
     no_action. That's distinct from denying the claim on its merits.
 - Outcomes:
@@ -86,6 +88,9 @@ How to decide:
 @dataclass
 class JudgeDeps:
     case_file: CaseFile
+    # Policies the advocates cited. Already validated in their own runs (each had to be
+    # retrieved there), so the Judge may apply them without re-searching.
+    argued_policy_ids: set[str] = field(default_factory=set)
     retrieved_policy_ids: set[str] = field(default_factory=set)
     requested_escalation: bool = False
     escalation_reason: str | None = None
@@ -183,7 +188,10 @@ def _policy_id(ref: str | None) -> str | None:
 async def validate_judge_citations(ctx: RunContext[JudgeDeps], out: JudgeVerdict) -> JudgeVerdict:
     deps = ctx.deps
     valid_refs = evidence_index(deps.case_file).keys()
-    valid_policies = {t.policy_id for t in deps.case_file.policy_tags} | deps.retrieved_policy_ids
+    valid_policies = (
+        {t.policy_id for t in deps.case_file.policy_tags}
+        | deps.argued_policy_ids | deps.retrieved_policy_ids
+    )
     out = out.model_copy(update={
         "policy_applied": _policy_id(out.policy_applied),
         "remedy": out.remedy.model_copy(
@@ -232,7 +240,12 @@ async def validate_judge_citations(ctx: RunContext[JudgeDeps], out: JudgeVerdict
 async def run_judge(
     case_file: CaseFile, rider_argument: Argument, driver_argument: Argument
 ) -> JudgeRun:
-    deps = JudgeDeps(case_file=case_file)
+    deps = JudgeDeps(
+        case_file=case_file,
+        argued_policy_ids={
+            _policy_id(p) for p in rider_argument.policy_cites + driver_argument.policy_cites
+        },
+    )
     result = await judge_agent.run(
         render_judge_input(case_file, rider_argument, driver_argument), deps=deps
     )

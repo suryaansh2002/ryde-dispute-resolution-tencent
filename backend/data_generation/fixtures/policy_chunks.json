@@ -108,11 +108,18 @@
     "chunk_id": "POL-04-02",
     "policy_id": "POL-04",
     "heading": "4. Property Damage / Mess Disputes",
-    "text": "| Severity | Example | Fee (up to) |\n|---|---|---|\n| Minor | Food/drink spillage or crumbs | $40 |\n| Moderate | Bodily fluids or stains (mud, dirt, paint, cement, tar, oil) | $120 |\n| Severe | Vomit | $200 |\n\n**Evidence required:** at least one photo showing the damage/mess, and — mirroring Ryde's real appeals process for Vehicle Damage Claims — a cleaning receipt that states the cleaning company's name, contact details, cleaning date, and an authorized signature, when the claim includes an actual cleaning charge rather than just the photo. A photo is treated as insufficient evidence (claim declined, not denied — see §6) if: it doesn't match the trip's timestamp window, it's a duplicate of a photo used in a prior claim, or automated image analysis flags it as inconsistent with a genuine, unedited photograph. *(The submission-timing check itself — \"within 2 hours of trip completion\" — is not Ryde-sourced; no real article gives a filing window for the photo. It's kept as our own design choice, a deliberately tight one to keep the demo's evidentiary bar strict, and should be treated as a placeholder rather than a Ryde fact.)*",
+    "text": "| Severity | Example | Fee (up to) |\n|---|---|---|\n| Minor | Food/drink spillage or crumbs | $40 |\n| Moderate | Bodily fluids or stains (mud, dirt, paint, cement, tar, oil) | $120 |\n| Severe | Vomit | $200 |\n\n**Evidence required:** at least one photo showing the damage/mess. A photo is treated as insufficient evidence (claim declined, not denied — see §6) if it's a duplicate of a photo used in a prior claim, or automated image analysis flags it as inconsistent with a genuine, unedited photograph. *(There is no photo-submission deadline. An earlier draft required the photo within 2 hours of trip completion. That was an invented placeholder with no Ryde source, and it was dropped on 2026-10-11 so that a claim filed later, still inside the 30-day claim window, isn't declined automatically. Prevention Rule 6's claim window handles staleness.)*",
     "source": "RydeResolve-Policy-and-Prevention-Rules.md"
   },
   {
     "chunk_id": "POL-04-03",
+    "policy_id": "POL-04",
+    "heading": "4. Property Damage / Mess Disputes",
+    "text": "**Fee for a photo-only claim** *(not Ryde-sourced, our own rule)*: Ryde's real process sets an amount within the cap from photos and cleaning receipts. This system collects photos but not cleaning receipts. An upheld photo-only claim is therefore charged exactly the scheduled amount for the tier the evidence supports: $40 minor, $120 moderate, $200 severe. A missing receipt is not a reason to decline a claim that has a valid photo. Where a cleaning receipt does exist, it can only lower the fee to the receipt amount. Mirroring Ryde's real appeals process for Vehicle Damage Claims, a receipt must state the cleaning company's name, contact details, cleaning date, and an authorized signature.",
+    "source": "RydeResolve-Policy-and-Prevention-Rules.md"
+  },
+  {
+    "chunk_id": "POL-04-04",
     "policy_id": "POL-04",
     "heading": "4. Property Damage / Mess Disputes",
     "text": "**Burden of proof:** the party claiming damage bears the burden. A driver's claim with no photo, or a photo that fails the checks above, is declined for insufficient evidence — the default is not \"unresolved in the rider's favor,\" it's \"declined, refile with adequate evidence\" (§6). Real-world non-payment consequence, for context (not itself part of this system's remedy set): Ryde places the paying party's account on hold until a cleaning fee is settled.",

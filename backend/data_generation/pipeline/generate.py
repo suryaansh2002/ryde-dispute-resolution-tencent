@@ -67,24 +67,29 @@ async def generate_dataset(
     conn = await get_connection()
     try:
         hints = assign_category_hints(count, rng)
-        # A handful of deliberate repeat-filers / adverse-rating profiles (data sources
-        # doc §4 step 9) so Prevention Rule 5 and the Judge's reasoning have signal to
-        # pick up on — roughly 1 in 8 users, not literally "every n-th" to avoid an
-        # artificial pattern.
+        # A fixed pool of riders and drivers who each take several trips, rather than a
+        # fresh pair per trip, so personas have trip histories worth clicking through.
+        # A handful are deliberate repeat-filers / adverse-rating profiles (data sources
+        # doc §4 step 9) so Prevention Rule 5 and the Judge's reasoning have signal.
+        taken_names: set[str] = set()
+        pools: dict[str, list[str]] = {"rider": [], "driver": []}
+        pool_sizes = {"rider": max(8, count // 5), "driver": max(5, count // 8)}
+        repeat_rate = {"rider": 0.12, "driver": 0.08}
+        for role, size in pool_sizes.items():
+            for _ in range(size):
+                user_id = await _insert_user(conn, generate_user(role, rng, taken_names))
+                await _insert_profile(conn, user_id, generate_behavior_profile(
+                    rng, force_repeat_filer=rng.random() < repeat_rate[role],
+                    force_adverse_rating=rng.random() < 0.1,
+                ))
+                pools[role].append(user_id)
+
         trip_ids: list[str] = []
         golden_candidates: list[dict] = []
 
         for hint in hints:
-            rider_profile = generate_behavior_profile(
-                rng, force_repeat_filer=rng.random() < 0.12, force_adverse_rating=rng.random() < 0.1
-            )
-            driver_profile = generate_behavior_profile(
-                rng, force_repeat_filer=rng.random() < 0.08, force_adverse_rating=rng.random() < 0.1
-            )
-            rider_id = await _insert_user(conn, generate_user("rider", rng))
-            driver_id = await _insert_user(conn, generate_user("driver", rng))
-            await _insert_profile(conn, rider_id, rider_profile)
-            await _insert_profile(conn, driver_id, driver_profile)
+            rider_id = rng.choice(pools["rider"])
+            driver_id = rng.choice(pools["driver"])
 
             pickup, dropoff = sample_pickup_dropoff(rng)
             optimal = get_route(pickup, dropoff)

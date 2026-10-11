@@ -71,7 +71,7 @@ Prevention rules, the escalation gate, and the compliance check are plain Python
 The Policy doc (`docs/RydeResolve-Policy-and-Prevention-Rules.md`) is explicit about which numbers are real Ryde-sourced figures and which are invented placeholders needed to make a category adjudicable. When touching policy logic or `policy_chunks` content, preserve that distinction (e.g. in comments/docs), don't merge them into one undifferentiated ruleset:
 
 - **Real, sourced:** No-Show fee ($4.50), grace periods (3 min / 15 min), dispute window (30 days), Property Damage fee caps ($40/$120/$200 "up to"), Route Deviation's $3.00 destination-change fee (a different flow, not this dispute type).
-- **Invented, no real Ryde source exists:** Route Deviation's 10%/25% tolerance thresholds and refund formula, the No-Show 100m GPS-arrival radius, Property Damage's 2-hour photo-submission window, Prevention Rule 5's 3-disputes/30-days threshold, and the escalation risk-bucket table contents (System Design §6.1).
+- **Invented, no real Ryde source exists:** Route Deviation's 10%/25% tolerance thresholds and refund formula, the No-Show 100m GPS-arrival radius, the Property Damage photo-only fee rule (upheld photo-only claims are charged the tier's scheduled amount; the old 2-hour photo window was dropped), Prevention Rule 5's 3-disputes/30-days threshold, and the escalation risk-bucket table contents (System Design §6.1).
 
 ## Open architecture decisions (not yet resolved — see System Design §6.2)
 

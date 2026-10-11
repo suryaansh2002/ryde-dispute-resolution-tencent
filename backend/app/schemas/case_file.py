@@ -64,6 +64,10 @@ class CaseFile(BaseModel):
     complainer_id: str
     complainee_id: str
 
+    # Trip window: lets agents place chat messages and photos relative to the trip itself.
+    trip_started_at: datetime | None = None
+    trip_completed_at: datetime | None = None
+
     chat_log: list[ChatMessage]
     pickup_lat: float
     pickup_lng: float

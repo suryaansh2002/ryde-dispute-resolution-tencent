@@ -1,0 +1,37 @@
+# Render Blueprint for the RydeResolve backend (system design §9).
+# Dashboard -> New -> Blueprint -> pick this repo. Render prompts for every `sync: false`
+# value on first create; paste them from the root .env WITHOUT the surrounding quotes.
+services:
+  - type: web
+    name: ryde-resolve-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    # Same region as the Neon database (AWS us-east-2), so every DB query stays local.
+    region: ohio
+    healthCheckPath: /health
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - backend/**
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_URL_UNPOOLED
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_ENDPOINT_URL_S3
+        sync: false
+      - key: AWS_REGION
+        sync: false
+      - key: LOGFIRE_TOKEN
+        sync: false
+      # "*" while the frontend URL doesn't exist yet; set to the Vercel URL once it does.
+      - key: CORS_ORIGINS
+        value: "*"

@@ -3,13 +3,23 @@
 import random
 
 FIRST_NAMES = ["Wei Jie", "Siti", "Arjun", "Mei Ling", "Hafiz", "Priya", "Jun Hao", "Nur",
-               "Kevin", "Aisyah", "Ryan", "Farah", "Zhi Yang", "Kavya", "Daniel", "Izzah"]
+               "Kevin", "Aisyah", "Ryan", "Farah", "Zhi Yang", "Kavya", "Daniel", "Izzah",
+               "Marcus", "Hui Min", "Rajesh", "Amirah", "Ethan", "Shu Fen", "Imran", "Divya"]
+LAST_NAMES = ["Tan", "Lim", "Ng", "Rahman", "Kumar", "Wong", "Lee", "Ismail", "Chen",
+              "Pillai", "Goh", "Osman", "Teo", "Nair", "Koh", "Yusof", "Chua", "Menon"]
 
 
-def generate_user(role: str, rng: random.Random) -> dict:
+def generate_user(role: str, rng: random.Random, taken: set[str]) -> dict:
+    """A user with a display name unique within `taken`, which the caller owns, so the
+    persona picker never shows two identical names."""
+    while True:
+        name = f"{rng.choice(FIRST_NAMES)} {rng.choice(LAST_NAMES)}"
+        if name not in taken:
+            taken.add(name)
+            break
     return {
         "role": role,
-        "display_name": f"{rng.choice(FIRST_NAMES)} ({role.capitalize()})",
+        "display_name": name,
         "rating": round(rng.uniform(3.8, 5.0), 2),
         "rating_trend": round(rng.uniform(-0.05, 0.05), 3),
     }
