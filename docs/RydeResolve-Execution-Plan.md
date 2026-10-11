@@ -1,12 +1,59 @@
 # RydeResolve — Execution Plan to Submission
 
-**Status:** v1, 2026-10-11. **This replaces the day-by-day plan in the Development Roadmap** from here to submission. The roadmap's 14-day schedule has run out, and its Dev A / Dev B ownership split is suspended: the remaining work is one critical path, done in order, by whoever is free. Architecture facts still come from the System Design doc. This doc only covers sequencing.
+**Status:** v2, 2026-10-11 (end of day). All code is built and verified (golden run 22/22). What's left is deployment, the CodeBuddy proof, and submission material. Who does what is in **§0** below. v1, 2026-10-11: **This replaces the day-by-day plan in the Development Roadmap** from here to submission. The roadmap's 14-day schedule has run out, and its Dev A / Dev B ownership split is suspended: the remaining work is one critical path, done in order, by whoever is free. Architecture facts still come from the System Design doc. This doc only covers sequencing.
 
 **Before starting any item below, push whatever you have, even if it's half-done.** Two people building the same piece on unpushed branches is the most likely way to lose a day.
 
 ---
 
+## 0. Who does what now (work distribution)
+
+The code is done, so the remaining work is mostly people and accounts. Owners: **Dev A** = @suryaansh2002, **Dev B** = @shiv0112.
+
+| # | Task | Owner | Guide | Depends on | Why it matters |
+|---|---|---|---|---|---|
+| 1 | **CodeBuddy / WorkBuddy proof**: Tasks A–C in CodeBuddy, screenshots and exports into `submission/proof/`, `submission/product-sharing.md` | Dev B | [Proof doc](RydeResolve-CodeBuddy-WorkBuddy-Proof.md) | nothing; start now | **Hard gate.** Without it the project isn't scored |
+| 2 | **Deploy the backend to Render**, then run the smoke test against the live URL | Dev B | [Deploy doc](RydeResolve-Deploy-Backend.md) Part 1 | nothing; start now | The live URL judges use |
+| 3 | **Deploy the frontend to Vercel**, set `CORS_ORIGINS`, walk the golden path on the live URLs | Dev B | Deploy doc Part 2 | #2 | Same |
+| 4 | **WorkBuddy drafts**: title, blurb, description, social post (`submission/copy.md`) and the demo script (`submission/demo-script.md`) | Dev B | Proof doc §3 | nothing | Submission form; doubles as WorkBuddy proof |
+| 5 | **Cover image**, 16:9 (`submission/cover.png`), e.g. in Miora | Dev B | Proof doc §3 | nothing | Required by the form |
+| 6 | **Rotate every key** (Groq, Neon, object storage, Logfire) and **publish a clean public repo**: fresh history, no `.env` | Dev A | Step 6 below | #2–3 verified, so the live deploy isn't broken mid-check | `.env` is in this repo's history; it can't go public as-is |
+| 7 | **Re-point Render and Vercel** at the new public repo, with the new secrets | Dev B | Deploy doc, "The repo will move" | #6 | The live URL must run the public code |
+| 8 | **Record the 5–8 minute demo video**. Run `uv run python -m scripts.shift_dates` and warm `/health` first | Dev A | Dev B's script (#4) | #3 and #4 (#7 if done) | Required by the form |
+| 9 | **Fill in and submit the form**: links, copy, cover, proof screenshots, video | Dev A | — | everything above | — |
+| 10 | **Final joint check (15 minutes)** on the live URLs: demo case, trace, human review, Accuracy page | Both | Deploy doc golden path | #7 | Catches anything broken before judges see it |
+
+**Shared rules:**
+- Push before starting anything; one branch per task (`dev-b/<task>`).
+- Proof screenshots must come from real work, never staged re-creations.
+- Nobody commits `.env` or a screenshot showing a key.
+
+**Code changes from here on are bug fixes only.** Whoever finds a bug files it, and Dev A fixes it unless it's in Dev B's CodeBuddy tasks (Tasks A–B add a safety-keyword backstop and data-pipeline tests).
+
 ## 1. Where we are (as of this revision)
+
+**Built and verified on `main` (CI green, 161 backend tests):**
+- **The full pipeline:** intake, Triage, Prevention Rules, Evidence Collection, Image Analysis, both advocates, the Judge, the escalation gate, compliance, then a decision or human review (L2). It runs on real Neon and Groq.
+- **Live:** SSE trace streaming, the L2 queue with ratify/override, Logfire, and per-call token usage in `llm_usage`.
+- **Frontend:**
+  - landing page with one-click demo cases;
+  - Rider and Driver panels;
+  - System Trace with an evidence drawer;
+  - Human review;
+  - Accuracy page.
+
+  It has light and dark themes and is tested in a real browser.
+- **Proof that it works:** the golden run (22 labelled cases) scores 22/22. The smoke test matches its expected results.
+- **Submission material:**
+  - README with screenshots and results;
+  - architecture diagrams in `docs/diagrams/`;
+  - deploy guide;
+  - docs in line with the code (System Design v14).
+
+**Not done (see §0):** deployment, CodeBuddy/WorkBuddy proof, the public repo with rotated keys, submission copy, cover image, and the demo video.
+
+<details><summary>v1 snapshot of this section (start of day)</summary>
+
 
 **Working, on `main`, CI green:**
 - Schemas, Postgres migration (applied to the Neon dev branch), Prevention Rules.
@@ -22,6 +69,8 @@
 - All of the frontend.
 - Deployment.
 - All submission materials.
+
+</details>
 
 ## 2. Where we need to get to
 
@@ -55,7 +104,7 @@ Verified with `backend/scripts/smoke_e2e.py` against real Neon + Groq. Route dev
 
 ### Step 2 — Deploy a bare version early (~0.5 day) — 🟡 READY, needs one manual step
 
-Done: `backend/Dockerfile` + root `render.yaml` Blueprint (Ohio, next to Neon), CORS, demo endpoints (`/demo/personas`, `/users/{id}/trips`, `/users/{id}/cases`), full 200-trip dataset in Neon. The container passes `scripts/smoke_e2e.py` locally. **Remaining, assigned to Dev B (@shiv0112) on his Render account:** follow [RydeResolve-Deploy-Backend.md](RydeResolve-Deploy-Backend.md) (create the service from the Blueprint, set secrets, run the smoke script against the live URL, check the live stream through Render's proxy).
+Done: `backend/Dockerfile` + root `render.yaml` Blueprint (Ohio, next to Neon), CORS, demo endpoints (`/demo/personas`, `/users/{id}/trips`, `/users/{id}/cases`), full 200-trip dataset in Neon. The container passes `scripts/smoke_e2e.py` locally. **Remaining, assigned to Dev B (@shiv0112) on their own Render account:** follow [RydeResolve-Deploy-Backend.md](RydeResolve-Deploy-Backend.md) (create the service from the Blueprint, set secrets, run the smoke script against the live URL, check the live stream through Render's proxy).
 
 - Dockerfile, backend on Render, CORS, health check confirmed on the live URL.
 - Run the data generator at full scale (200 trips) against Neon.
@@ -116,11 +165,17 @@ Logfire spans every agent run (configured at server startup). SSE: `/events/case
 
 ## 5. Needs a person, not code
 
-- The exact submission deadline (date and time). It decides how much of step 5 survives.
-- Rotating keys and publishing the clean public repo.
-- CodeBuddy screenshots, the WorkBuddy board (optional), recording the demo video.
-- Optional: `ONEMAP_EMAIL` / `ONEMAP_PASSWORD` in `.env` for real road routes instead of straight-line stand-ins.
+All of it is in §0. Open points:
+- **The exact submission deadline** (date and time). It decides how §0 is paced; nothing technical depends on it any more.
+- **Optional:** `ONEMAP_EMAIL` / `ONEMAP_PASSWORD` for real road routes. This needs regenerating the dataset and another golden-run tuning pass, so it's not worth doing before submission.
 
 ## 6. Time vs. reality
 
-Steps 1–5 are roughly **4–4.5 days** for one person. If the deadline is closer, the minimum is steps 1–4, with most of step 5 cut and step 6 running in parallel.
+Steps 1–5 are done. What's left in §0 takes about a day of elapsed time:
+- the proof tasks: half a day of real CodeBuddy work;
+- the deploys: about an hour;
+- the key rotation and public repo: about an hour;
+- the copy, script and cover: a couple of hours;
+- the video: a couple of hours.
+
+The critical path is **#1 (proof)**, because it's a hard gate and hasn't started.
