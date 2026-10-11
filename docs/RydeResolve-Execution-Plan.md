@@ -53,7 +53,10 @@ Verified with `backend/scripts/smoke_e2e.py` against real Neon + Groq. Route dev
 - Orchestrator: both advocates in parallel → Judge → gate → compliance → `decided` or escalated to L2.
 - **Done when:** a real claim filed against the live backend comes back with a decision or an L2 escalation, for all three categories.
 
-### Step 2 — Deploy a bare version early (~0.5 day)
+### Step 2 — Deploy a bare version early (~0.5 day) — 🟡 READY, needs one manual step
+
+Done: `backend/Dockerfile` + root `render.yaml` Blueprint (Ohio, next to Neon), CORS, demo endpoints (`/demo/personas`, `/users/{id}/trips`, `/users/{id}/cases`), full 200-trip dataset in Neon. The container passes `scripts/smoke_e2e.py` locally. **Remaining (needs the repo owner):** create the Render service from the Blueprint (steps in `backend/README.md` → Deploying), then run the smoke script against the live URL.
+
 - Dockerfile, backend on Render, CORS, health check confirmed on the live URL.
 - Run the data generator at full scale (200 trips) against Neon.
 - Small demo endpoints so the UI can list personas and their trips.
