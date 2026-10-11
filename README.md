@@ -33,6 +33,7 @@ Full diagrams and rationale live in [`docs/RydeResolve-System-Design.md`](docs/R
 | [System Design & Architecture](docs/RydeResolve-System-Design.md) | Client/backend/data-layer design, the five-agent roster, escalation gates, deployment architecture, and submission-requirements mapping |
 | [Data Sources & Generation Strategy](docs/RydeResolve-Data-Sources-and-Strategy.md) | Which data the architecture needs, where it comes from (real API, synthetic, or semi-dummy), new Postgres tables, and the synthetic-dataset generation pipeline |
 | [Dispute Resolution Policy & Prevention Rules](docs/RydeResolve-Policy-and-Prevention-Rules.md) | The actual policy corpus used for Policy RAG, and the six deterministic Prevention Rules, each labeled as either real-Ryde-sourced or an invented design choice |
+| [Deploy the Backend](docs/RydeResolve-Deploy-Backend.md) | Step-by-step Render deployment with secrets table, smoke test and done checklist (owner: Dev B) |
 
 ## Deployment (all free tier)
 
