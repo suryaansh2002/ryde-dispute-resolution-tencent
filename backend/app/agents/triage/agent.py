@@ -40,6 +40,7 @@ triage_agent = Agent(
     settings.agent_model,
     output_type=TriageResult,
     system_prompt=SYSTEM_PROMPT,
+    name="triage",
 )
 
 
