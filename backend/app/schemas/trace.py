@@ -12,6 +12,8 @@ class TraceEventKind(StrEnum):
     AGENT_OUTPUT = "agent_output"
     ESCALATION = "escalation"
     L2_REVIEW = "l2_review"
+    # A pipeline step failed (e.g. a model call); the case stays at its last good state.
+    ERROR = "error"
 
 
 class AgentName(StrEnum):
