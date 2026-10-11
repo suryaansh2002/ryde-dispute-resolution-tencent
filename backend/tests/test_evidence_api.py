@@ -66,3 +66,21 @@ def test_oversized_upload_is_rejected(client, monkeypatch):
     )
     assert resp.status_code == 413
     assert client.uploads == []
+
+
+def test_upload_before_filing_returns_a_ref_for_post_cases(client):
+    resp = client.post("/uploads", data={"kind": "photo"},
+                       files={"file": ("spill.png", b"bytes", "image/png")})
+    assert resp.status_code == 201
+    ref = resp.json()
+    assert ref["kind"] == "photo" and ref["hash"] == "sha256:fake"
+    assert ref["object_key"].startswith("evidence/uploads/")
+    assert ref["object_key"].endswith("/spill.png")
+
+
+@pytest.mark.parametrize(("name", "expected"), [
+    ("../../etc/passwd", "passwd"), ("my photo (1).jpg", "my_photo__1_.jpg"),
+    ("..", "upload"), (None, "upload"), ("C:\\x\\y.png", "y.png"),
+])
+def test_filenames_are_made_safe_for_object_keys(name, expected):
+    assert evidence_api._safe_name(name) == expected

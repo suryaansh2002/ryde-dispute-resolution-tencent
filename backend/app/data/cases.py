@@ -229,3 +229,36 @@ async def list_l2_queue(conn: asyncpg.Connection) -> list[dict[str, Any]]:
             item["confidence"] = float(item["confidence"])
         queue.append(item)
     return queue
+
+
+_CASE_SUMMARY = """
+SELECT c.id, c.trip_id, c.state, c.category, c.tier, c.is_safety, c.created_at, c.updated_at,
+       c.complainer_id, complainer.display_name AS complainer_name,
+       complainer.role AS complainer_role,
+       c.complainee_id, complainee.display_name AS complainee_name
+FROM cases c
+JOIN users complainer ON complainer.id = c.complainer_id
+JOIN users complainee ON complainee.id = c.complainee_id
+"""
+
+
+async def list_recent_cases(conn: asyncpg.Connection, limit: int) -> list[dict[str, Any]]:
+    rows = await conn.fetch(_CASE_SUMMARY + " ORDER BY c.updated_at DESC LIMIT $1", limit)
+    return [dict(r) for r in rows]
+
+
+async def get_case_view(conn: asyncpg.Connection, case_id: str) -> dict[str, Any] | None:
+    """Case summary + names + claim text + the latest response, for the UI. The raw
+    case row (with the full case file) stays behind GET /cases/{id}."""
+    row = await conn.fetchrow(
+        _CASE_SUMMARY.replace("SELECT c.id,", "SELECT c.claim_text, c.id,") + " WHERE c.id = $1",
+        case_id,
+    )
+    if row is None:
+        return None
+    view = dict(row)
+    response = await get_latest_response(conn, case_id)
+    view["response"] = (
+        {"text": response["text"], "submitted_at": response["submitted_at"]} if response else None
+    )
+    return view

@@ -1,10 +1,11 @@
-"""Claim intake pipeline (system design §6 steps 1-4; roadmap v3 Day 3-5).
+"""Claim intake (system design §6 steps 1–4): Prevention Rules 1/2 (pre-case), the
+Triage Agent, Prevention Rules 3/5/6 (post-triage), and the Evidence Collection Agent,
+ending at `awaiting_response`. `app/orchestrator/adjudication.py` takes it from there.
 
-Wires together everything on Dev A's side of the seam: Prevention Rules 1/2 (pre-case),
-the Triage Agent, Prevention Rules 3/5/6 (post-triage), and the Evidence Collection
-Agent — ending at `awaiting_response`, which is as far as Dev A's half of the pipeline
-goes. Dev B's Day-5 extension picks up from there (response handling -> Advocates ->
-Judge -> escalation gate), per `app/orchestrator/state_machine.py`'s back-half states.
+Split in two so the API can answer quickly: `open_claim` validates and creates the case
+row (fast, no model calls), and `process_claim` runs everything else (tens of seconds
+of agent calls). `file_claim` runs both back to back; the API's background mode
+returns the case id after `open_claim` and lets the browser watch the rest over SSE.
 
 Deliberately *not* wrapped in one DB transaction across the whole pipeline: a Triage/
 Evidence Collection agent call can take seconds, and holding a transaction open across
@@ -34,7 +35,7 @@ from app.data.cases import (
 from app.data.db import get_connection
 from app.orchestrator.state_machine import CaseStateMachine
 from app.rules.prevention import PreventionAction, PreventionContext, run_prevention_rules
-from app.schemas import CaseFile, CaseState, DisputeCategory, TriageResult
+from app.schemas import CaseFile, CaseRole, CaseState, DisputeCategory, TriageResult
 from app.schemas.trace import AgentName, TraceEventKind
 
 
@@ -59,14 +60,25 @@ class FileClaimResult:
     detail: str = ""
 
 
-async def file_claim(
+@dataclass
+class OpenedClaim:
+    case_id: str
+    trip: dict
+    trip_id: str
+    complainer_id: str
+    complainer_role: CaseRole
+    complainee_id: str
+    claim_text: str
+
+
+async def open_claim(
     trip_id: str,
     complainer_id: str,
     category: DisputeCategory,
     claim_text: str,
     evidence: list[EvidenceInput] | None = None,
-) -> FileClaimResult:
-    evidence = evidence or []
+) -> OpenedClaim:
+    """Prevention Rules 1/2, then the case row and any evidence filed with the claim."""
     conn = await get_connection()
     try:
         trip = await get_trip(conn, trip_id)
@@ -82,15 +94,25 @@ async def file_claim(
         case_id = await create_case(
             conn, trip_id, complainer_id, complainee_id, category, claim_text
         )
-        sm = CaseStateMachine(case_id=case_id, emit=trace_emitter(conn))
-
-        for item in evidence:
+        for item in evidence or []:
             await insert_evidence(
                 conn, case_id, item.kind, item.hash, item.object_key, complainer_id
             )
+        return OpenedClaim(
+            case_id, trip, trip_id, complainer_id, complainer_role, complainee_id, claim_text
+        )
+    finally:
+        await conn.close()
 
+
+async def process_claim(opened: OpenedClaim) -> FileClaimResult:
+    """Triage → Prevention Rules 3/5/6 → Evidence Collection → `awaiting_response`."""
+    case_id, trip_id, trip = opened.case_id, opened.trip_id, opened.trip
+    conn = await get_connection()
+    try:
+        sm = CaseStateMachine(case_id=case_id, emit=trace_emitter(conn))
         await sm.transition(CaseState.TRIAGE)
-        triage_result = await run_triage(claim_text, trip_id)
+        triage_result = await run_triage(opened.claim_text, trip_id)
         await update_case(
             conn, case_id, state=CaseState.TRIAGE.value, category=triage_result.category.value,
             tier=triage_result.tier, is_safety=triage_result.is_safety,
@@ -101,11 +123,11 @@ async def file_claim(
         )
 
         ctx = PreventionContext(
-            trip_id=trip_id, category=triage_result.category, claimant_id=complainer_id,
+            trip_id=trip_id, category=triage_result.category, claimant_id=opened.complainer_id,
             trip_exists=True, claimant_is_party_to_trip=True,
             has_open_or_decided_case_for_trip=False, is_safety=triage_result.is_safety,
             has_required_evidence=await has_evidence(conn, case_id),
-            claimant_dispute_count_30d=await dispute_count_30d(conn, complainer_id),
+            claimant_dispute_count_30d=await dispute_count_30d(conn, opened.complainer_id),
             trip_completed_at=trip["completed_at"],
         )
         outcome = run_prevention_rules(ctx)
@@ -136,8 +158,8 @@ async def file_claim(
         await update_case(conn, case_id, state=CaseState.ASSEMBLING.value)
         case_file = await run_evidence_collection(
             trip_id=trip_id, case_id=case_id, triage_result=triage_result,
-            complainer_role=complainer_role, complainer_id=complainer_id,
-            complainee_id=complainee_id,
+            complainer_role=opened.complainer_role, complainer_id=opened.complainer_id,
+            complainee_id=opened.complainee_id,
         )
         await save_case_file(conn, case_id, case_file)
         await record_trace_event(
@@ -160,5 +182,21 @@ async def file_claim(
             case_id, CaseState.AWAITING_RESPONSE, triage_result, outcome.velocity_flagged,
             case_file=case_file,
         )
+    except Exception as exc:
+        await record_trace_event(
+            conn, case_id, TraceEventKind.ERROR, detail=f"intake failed: {exc!r}"[:500]
+        )
+        raise
     finally:
         await conn.close()
+
+
+async def file_claim(
+    trip_id: str,
+    complainer_id: str,
+    category: DisputeCategory,
+    claim_text: str,
+    evidence: list[EvidenceInput] | None = None,
+) -> FileClaimResult:
+    opened = await open_claim(trip_id, complainer_id, category, claim_text, evidence)
+    return await process_claim(opened)
