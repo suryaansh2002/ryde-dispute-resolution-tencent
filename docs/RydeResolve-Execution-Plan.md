@@ -82,13 +82,17 @@ Logfire spans every agent run (configured at server startup). SSE: `/events/case
 
 ### Step 5 — Proof that it works (~0.5 day, can be cut)
 - ✅ Golden-run (2026-10-11): `POST /golden-run` files all 22 labelled cases through the full pipeline with real model calls and scores each verdict (outcome, remedy, exact amount) against its label. Routing isn't scored; it's reported alongside. Results are on the frontend's Accuracy page (`/insights`).
-- ✅ Tuning, measured by golden runs: **14/22 → 19/22 → 21/22**. What changed:
+- ✅ Tuning, measured by golden runs: **14/22 → 19/22 → 21/22 → 21/22 → 22/22** (run #5, 2026-10-11: 12 decided automatically, 10 to a person, median 39 s). Usage baseline from the same run: 1.77M input / 60K output tokens for 22 cases (`llm_usage`). What changed:
   - Agent calls retry Groq 429s for about two minutes, and the golden run uses concurrency 2.
   - Traffic events get code-computed `distance_to_planned_route_m`, `during_trip` and `matches_route`; ROUTE-COMPARISON lists the matching events. This is our own 2 km test for "along the optimal route".
   - Waiver and route-refund amounts are filled in code.
   - The Judge validator rejects a non-upheld outcome that carries a remedy, and a driver-filed claim "upheld" with a waiver for the rider. Compliance also vetoes the latter.
   - Prompt rules: outcomes are from the filer's side; an upheld no-show always gets a fee waiver, never a fare refund.
 - Known label limit: the generator labels every photo-backed damage claim "upheld". When the rider disputes causation in the chat, the Judge sometimes escalates instead, which is defensible. That case flips between runs.
+- Image Analysis renders are now deterministic per seed, since Pillow's `effect_noise` was unseeded. With that fixed, vision grades 32/32 across 8 seeds per tier.
+- Clerical fills in code: an upheld verdict that names no policy gets its category's section (POL-02/03/04).
+- Submission material: architecture diagrams (`docs/diagrams/*.mmd` + PNG), README rewritten with screenshots (`docs/screenshots/`) and results.
+- Demo database: 200 trips, 65 users, the 22 golden-run cases (12 decided, 9 with a person, 1 declined); smoke/test cases removed.
 - Synthetic trips age out of the 30-day window. Before a demo, run `uv run python -m scripts.shift_dates` from `backend/`.
 - ✅ Image Analysis tool for Property Damage photos (2026-10-11). The vision call runs on `qwen/qwen3.8-27b`, which accepts images on Groq. The model reports the kind of mess; code maps it to the Policy §4 tier. Compliance vetoes a fee above the tier the photos show. Seeded and demo photos are synthetic renders per tier (`data_generation/pipeline/photo_render.py`, `GET /demo/sample-photo`); vision grades 15 of 16 correctly, and the miss comes back low-confidence, which means "unclear", so a person decides.
 

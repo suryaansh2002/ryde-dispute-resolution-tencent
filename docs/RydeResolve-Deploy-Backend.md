@@ -1,7 +1,7 @@
 # RydeResolve — Deploy to Render (backend) and Vercel (frontend)
 
 **Owner:** Dev B (@shiv0112), on your own Render account.
-**Status:** ready to deploy. The image builds and passes the end-to-end test locally. This is the only remaining part of step 2 in the [Execution Plan](RydeResolve-Execution-Plan.md).
+**Status:** ready to deploy, updated 2026-10-11 for the UX overhaul, Image Analysis, the golden run and usage tracking. The image builds and passes the end-to-end test locally. This is the only remaining part of step 2 in the [Execution Plan](RydeResolve-Execution-Plan.md).
 **Time:** about 15 minutes for the backend, plus about 5 minutes for its first build; about 10 minutes for the frontend. Do the backend first, because the frontend needs its URL.
 
 When you're done, post the live URL in our chat and tick the checklist at the bottom.
@@ -16,6 +16,12 @@ When you're done, post the live URL in our chat and tick the checklist at the bo
   - Health check on `/health`.
   - Auto-deploys when `backend/**` changes on `main`.
 - **External services the app talks to:** Neon Postgres, Neon Object Storage, Groq, Logfire. All of them already exist; you're only supplying their credentials.
+- **Database schema:** `backend/migrations/0001_init.sql` and `0002_llm_usage.sql`. Both are already applied to our Neon branch, so there's nothing to run unless you point the service at a *new* Neon branch or project. In that case, apply both in order first with `psql "$DATABASE_URL" -f ...`.
+- **New since the first version of this doc** (no extra setup needed; all of it ships in the image):
+  - Pillow, which renders the synthetic damage photos.
+  - Image Analysis, which uses the same Groq key and model.
+  - `POST /golden-run`.
+  - The `llm_usage` table, written on every model call.
 
 ## Steps
 
@@ -76,7 +82,7 @@ It takes about 3–5 minutes and makes real Groq calls. **Expected:**
 |---|---|---|
 | route_deviation | `decided` | partial refund $1.16 |
 | no_show_charge | `escalated` | no-show fee waiver $4.50 (repeat-filer bucket) |
-| property_damage | `decided` | cleaning fee $40.00 |
+| property_damage | `decided` | cleaning fee $40.00 (Image Analysis grades the rendered photo a drink spill, the minor tier) |
 
 Confidence values vary run to run; states and amounts shouldn't. The script deletes everything it seeded. If it crashes partway, run `uv run python -m scripts.smoke_e2e --cleanup-only`.
 
@@ -92,6 +98,9 @@ You should get `: ping` comments every 15 seconds and the connection should stay
 
 - **Cold starts.** The free tier sleeps after 15 idle minutes, and the next request takes about a minute to wake it. Hit `/health` a couple of minutes before any demo or recording. An open live stream keeps it awake.
 - **Logs.** Render dashboard → service → Logs. Agent runs and tool calls are also in Logfire (project for `LOGFIRE_TOKEN`), service name `ryde-resolve-api`.
+- **Dates.** The synthetic trips are dated relative to when the data was generated, and claims are only allowed within 30 days of a trip. Before a demo or recording, run `uv run python -m scripts.shift_dates` from `backend/` (with the root `.env`). It moves the whole timeline forward, so every trip is recent again. It writes straight to Neon, so it doesn't matter where the backend runs.
+- **Golden run on the free tier.** `POST /golden-run` takes about 8 minutes and runs inside the web process. Keep the Accuracy page open while it runs: its polling keeps the instance awake. A restart mid-run loses the progress counter, but finished cases are already saved.
+- **Usage.** Every model call writes a row to `llm_usage` (tokens per case and agent). Nothing to configure.
 - **The repo will move.** Before submission we rotate every key in `.env` (they're in git history) and publish a fresh public repo. When that happens, this service gets re-pointed to the new repo and its secrets replaced with the new ones. Don't spend time hardening anything tied to the current keys.
 
 ## Part 2 — Frontend on Vercel
@@ -104,13 +113,15 @@ The frontend (`frontend/`, React + Vite) is built and was tested end to end in a
 4. Deploy. `frontend/vercel.json` already rewrites every path to `index.html`, so deep links like `/trace/CASE-0001` load directly.
 5. Back on Render, set `CORS_ORIGINS` to the Vercel URL (e.g. `https://ryde-resolve.vercel.app`) and let it redeploy. Until then `*` works.
 6. **Walk the golden path in a browser** on the Vercel URL:
-   1. Personas → pick a rider. Pick one high in the list; they have dispute scenarios.
-   2. Pick a trip tagged *route deviation scenario* → **File a claim** → **Use example text** → **File claim**. About 20 seconds later the case shows *Awaiting response*.
-   3. **Demo: switch to … to respond** → **Use example text** → **Send response**. About 30 seconds later it shows *Decided* or *Human review*, with the decision document.
-   4. **Watch the agents →**: the trace page should show both advocates side by side and the Judge's ruling.
-   5. **L2 console**: if the case escalated, ratify it.
+   1. **Overview** → under *Run a demo case*, click **The long way round**. It picks a suitable trip, signs you in as the rider, and pre-fills the report.
+   2. **Submit report**. The case page shows a progress stepper; after about 20 seconds it reaches *Awaiting response*.
+   3. Under *Both sides*, click **Demo: respond as …** → **Use example text** → **Send my side**.
+   4. **Watch the agents →**: the route line fills in live, both advocates appear side by side, then the Judge's ruling. Click any citation chip (e.g. `ROUTE-COMPARISON`); a drawer opens with the map.
+   5. Back on the case page, after about 30 seconds you get the decision. Repeat with **A mess in the back seat** (damage, with Image Analysis) and **Something felt unsafe** (goes straight to a person).
+   6. **Human review**: escalated and safety cases are listed. Select one with `J`, ratify with `A` or override with `O`.
+   7. **Accuracy**: shows the last golden run. Don't start a new one here unless you have 8 minutes.
 
-   If the first page says it's waking the backend, wait for it: that's the free tier's cold start.
+   If the first page says it's waking the backend, wait for it: that's the free tier's cold start. Theme toggle is top right; check both light and dark.
 
 ## Done checklist
 
@@ -120,5 +131,6 @@ The frontend (`frontend/`, React + Vite) is built and was tested end to end in a
 - [ ] `/events/l2` holds the connection open with pings
 - [ ] Frontend live on Vercel with `VITE_API_URL` set; deep links load
 - [ ] `CORS_ORIGINS` on Render set to the Vercel URL
-- [ ] Golden path walked on the live URLs (file → respond → decision → trace → L2)
+- [ ] Golden path walked on the live URLs (demo case → respond → decision → trace with evidence drawer → human review → Accuracy page)
+- [ ] `scripts.shift_dates` run before any demo or recording
 - [ ] Both URLs shared with @suryaansh2002, and added to the Execution Plan and README

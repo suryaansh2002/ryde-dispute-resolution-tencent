@@ -1,0 +1,34 @@
+flowchart TB
+    claim([Claim filed<br/>rider or driver]) --> triage((Triage<br/>agent))
+    triage -->|safety| human
+    triage --> prevention{{Prevention rules<br/>6 checks · no model}}
+    prevention -->|duplicate / stale /<br/>missing evidence| declined([Declined:<br/>can refile])
+    prevention --> evidence((Evidence Collection<br/>agent))
+    evidence --> image[Image Analysis<br/>vision tool → tier in code]
+    image --> casefile[(CaseFile<br/>every item has a citable ref)]
+    evidence --> casefile
+    casefile --> response[/Other side responds/]
+    response --> rider((Rider<br/>advocate))
+    response --> driver((Driver<br/>advocate))
+    rider --> judge((Judge))
+    driver --> judge
+    casefile -. same file .-> judge
+    judge --> gate{{Escalation gate<br/>confidence ≥ 0.6 · risk bucket<br/>no model}}
+    gate --> compliance{{Compliance<br/>veto only · no model}}
+    compliance -->|all pass| decided([Decision<br/>final, cited])
+    gate -->|flagged| human[[Human review<br/>L2 console]]
+    compliance -->|veto| human
+    human --> decided
+
+    classDef agent fill:#ffffff,stroke:#10141c,stroke-width:2px,color:#10141c
+    classDef rule fill:#eef0f4,stroke:#10141c,stroke-width:1.5px,stroke-dasharray:4 3,color:#10141c
+    classDef riderc fill:#e7f0fb,stroke:#2a78d6,stroke-width:2.5px,color:#1b5aa3
+    classDef driverc fill:#fbeaf2,stroke:#c2457a,stroke-width:2.5px,color:#98305e
+    classDef end1 fill:#10141c,stroke:#10141c,color:#ffffff
+    classDef person fill:#fcefd9,stroke:#9a5800,stroke-width:2px,color:#10141c
+    class triage,evidence,judge agent
+    class prevention,gate,compliance,image rule
+    class rider riderc
+    class driver driverc
+    class claim,decided,declined end1
+    class human,response person
