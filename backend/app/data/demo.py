@@ -71,3 +71,48 @@ async def list_user_trips(conn: asyncpg.Connection, user_id: str) -> list[dict[s
 
 async def list_user_cases(conn: asyncpg.Connection, user_id: str) -> list[dict[str, Any]]:
     return [_plain(r) for r in await conn.fetch(_CASES, user_id)]
+
+
+async def system_stats(conn: asyncpg.Connection) -> dict[str, Any]:
+    """Headline numbers for the landing page: what the system has actually done."""
+    by_state = {r["state"]: r["n"] for r in await conn.fetch(
+        "SELECT state, count(*) AS n FROM cases GROUP BY state")}
+    by_category = {r["category"]: r["n"] for r in await conn.fetch(
+        "SELECT category, count(*) AS n FROM cases WHERE category IS NOT NULL GROUP BY category")}
+    decided = await conn.fetchrow(
+        """SELECT count(*) FILTER (WHERE NOT d.human_ratified) AS automatic,
+                  count(*) FILTER (WHERE d.human_ratified) AS human
+           FROM cases c
+           JOIN LATERAL (SELECT human_ratified FROM decisions
+                         WHERE case_id = c.id ORDER BY created_at DESC LIMIT 1) d ON true
+           WHERE c.state = 'decided'""")
+    # Time from claim to first agent decision, from the trace log itself.
+    timing = await conn.fetchrow(
+        """SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY secs) AS median_s
+           FROM (SELECT extract(epoch FROM min(e.t) - c.created_at) AS secs
+                 FROM cases c JOIN trace_events e ON e.case_id = c.id
+                 WHERE e.kind = 'agent_output' AND e.agent = 'judge'
+                 GROUP BY c.id, c.created_at) x""")
+    reasons = await conn.fetch(
+        """SELECT r AS reason, count(*) AS n FROM (
+             SELECT CASE
+               WHEN (d.escalation->>'bucket_escalate')::bool THEN 'risk bucket'
+               WHEN d.escalation->>'compliance_veto' IS NOT NULL THEN 'compliance veto'
+               WHEN (d.escalation->>'confidence_escalate')::bool THEN 'low confidence'
+               WHEN (d.escalation->>'judge_requested_escalation')::bool THEN 'judge requested'
+             END AS r
+             FROM decisions d) x
+           WHERE r IS NOT NULL GROUP BY r ORDER BY n DESC""")
+    return {
+        "cases": sum(by_state.values()),
+        "by_state": by_state,
+        "by_category": by_category,
+        "decided_automatically": decided["automatic"] if decided else 0,
+        "decided_by_human": decided["human"] if decided else 0,
+        "awaiting_human": by_state.get("escalated", 0) + by_state.get("safety_bypassed", 0),
+        "median_seconds_to_decision": (
+            round(float(timing["median_s"]), 1) if timing and timing["median_s"] else None),
+        "escalation_reasons": {r["reason"]: r["n"] for r in reasons},
+        "trips": await conn.fetchval("SELECT count(*) FROM trips"),
+        "users": await conn.fetchval("SELECT count(*) FROM users"),
+    }

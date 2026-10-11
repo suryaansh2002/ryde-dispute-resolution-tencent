@@ -6,10 +6,11 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
+from fastapi.responses import RedirectResponse
 
 from app.data.cases import get_case_row, insert_evidence
 from app.data.db import get_connection
-from app.tools.object_storage import upload_object
+from app.tools.object_storage import presigned_url, upload_object
 
 router = APIRouter(tags=["evidence"])
 
@@ -68,3 +69,16 @@ async def attach_evidence(
         await conn.close()
 
     return {"evidence_id": evidence_id, "object_key": object_key, "hash": hash_}
+
+
+@router.get("/evidence/{evidence_id}/content")
+async def evidence_content(evidence_id: str) -> RedirectResponse:
+    """Redirect to a short-lived presigned link for the evidence file (e.g. a photo)."""
+    conn = await get_connection()
+    try:
+        key = await conn.fetchval("SELECT object_key FROM evidence WHERE id = $1", evidence_id)
+    finally:
+        await conn.close()
+    if key is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"no evidence {evidence_id!r}")
+    return RedirectResponse(presigned_url(key), status_code=status.HTTP_307_TEMPORARY_REDIRECT)

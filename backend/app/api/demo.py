@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 from fastapi import APIRouter, HTTPException, Query, status
 
 from app.data.db import get_connection
-from app.data.demo import list_personas, list_user_cases, list_user_trips
+from app.data.demo import list_personas, list_user_cases, list_user_trips, system_stats
 from app.rules.prevention import CLAIM_WINDOW_DAYS
 
 router = APIRouter(tags=["demo"])
@@ -57,5 +57,16 @@ async def user_cases(user_id: str) -> list[dict]:
     conn = await get_connection()
     try:
         return await list_user_cases(conn, uid)
+    finally:
+        await conn.close()
+
+
+@router.get("/stats")
+async def stats() -> dict:
+    """What the system has done so far: cases, automation rate, time to decision,
+    escalation reasons. Computed from the case and trace tables, not estimated."""
+    conn = await get_connection()
+    try:
+        return await system_stats(conn)
     finally:
         await conn.close()

@@ -92,4 +92,4 @@ Two developers, split along the pipeline's natural data seam — each owns a ful
 
 ## Mandatory hackathon constraint
 
-The project must be built using CodeBuddy or WorkBuddy with proof captured continuously (screenshots/API logs) — this is a hard submission gate per the hackathon handbook, not optional tooling preference (System Design §8). Both devs capture their own CodeBuddy/WorkBuddy sessions on their own slice as they go, rather than reconstructing proof at the end.
+The project must be built using CodeBuddy or WorkBuddy with proof captured continuously (screenshots/API logs) — this is a hard submission gate per the hackathon handbook, not optional tooling preference (System Design §8). Dev B owns the proof: real tasks, setup and a capture checklist are in [`docs/RydeResolve-CodeBuddy-WorkBuddy-Proof.md`](docs/RydeResolve-CodeBuddy-WorkBuddy-Proof.md). Proof must come from real work done in those tools, not staged re-creations.

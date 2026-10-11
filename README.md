@@ -34,6 +34,7 @@ Full diagrams and rationale live in [`docs/RydeResolve-System-Design.md`](docs/R
 | [Data Sources & Generation Strategy](docs/RydeResolve-Data-Sources-and-Strategy.md) | Which data the architecture needs, where it comes from (real API, synthetic, or semi-dummy), new Postgres tables, and the synthetic-dataset generation pipeline |
 | [Dispute Resolution Policy & Prevention Rules](docs/RydeResolve-Policy-and-Prevention-Rules.md) | The actual policy corpus used for Policy RAG, and the six deterministic Prevention Rules, each labeled as either real-Ryde-sourced or an invented design choice |
 | [Execution Plan](docs/RydeResolve-Execution-Plan.md) | **Current** plan to submission: where we are, the remaining steps in order, decisions taken, and what needs a person |
+| [CodeBuddy / WorkBuddy proof](docs/RydeResolve-CodeBuddy-WorkBuddy-Proof.md) | The hackathon's mandatory tooling proof: setup, real tasks to do in CodeBuddy/WorkBuddy, what to capture, the write-up (owner: Dev B) |
 | [Deploy (Render + Vercel)](docs/RydeResolve-Deploy-Backend.md) | Step-by-step deploy of the backend (Render) and frontend (Vercel): secrets, smoke test, golden-path walkthrough, done checklist (owner: Dev B) |
 | [Development Roadmap](docs/RydeResolve-Development-Roadmap.md) | Two-developer, ~14-day build plan with day-by-day ownership, phasing, risks, and the demo-ready definition of done |
 
