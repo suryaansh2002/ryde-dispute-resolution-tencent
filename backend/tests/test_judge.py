@@ -131,3 +131,14 @@ def upheld_waiver(amount):
 async def test_upheld_remedy_without_amount_gets_a_correction():
     run = await run_with(scripted(upheld_waiver(None), upheld_waiver(4.50)), case="no_show_charge")
     assert run.verdict.remedy.amount == 4.50
+
+
+async def test_policy_cited_by_an_advocate_is_valid_without_re_searching():
+    # POL-08 isn't in the fixture's policy_tags and the Judge never calls policy_rag, but
+    # an advocate cited it (and was validated for it in its own run).
+    rider = Argument(role=CaseRole.RIDER, text="arg", cites=["PAYMENT"],
+                     policy_cites=["POL-08"], confidence=0.6)
+    with judge_agent.override(model=scripted(answer(policy="POL-08"))):
+        run = await run_judge(load_case("route_deviation"), rider, DRIVER)
+    assert run.verdict.policy_applied == "POL-08"
+    assert not run.flagged

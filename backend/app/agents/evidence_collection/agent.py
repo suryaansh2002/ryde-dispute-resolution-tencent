@@ -141,6 +141,8 @@ def _reconstruct(deps: EvidenceCollectionDeps, model_tags: list[PolicyTag]) -> C
         complainer_role=deps.complainer_role,
         complainer_id=deps.complainer_id,
         complainee_id=deps.complainee_id,
+        trip_started_at=trip.get("scheduled_at"),
+        trip_completed_at=trip.get("completed_at"),
         chat_log=chat_log,
         pickup_lat=trip["pickup_lat"],
         pickup_lng=trip["pickup_lng"],
