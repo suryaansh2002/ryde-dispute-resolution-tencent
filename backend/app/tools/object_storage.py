@@ -37,3 +37,12 @@ def upload_object(object_key: str, data: bytes, content_type: str) -> str:
         ContentType=content_type,
     )
     return f"sha256:{hashlib.sha256(data).hexdigest()}"
+
+
+def presigned_url(object_key: str, expires_seconds: int = 600) -> str:
+    """A short-lived link to view an evidence object; the bucket itself stays private."""
+    return _client().generate_presigned_url(
+        "get_object",
+        Params={"Bucket": settings.object_storage_bucket, "Key": object_key},
+        ExpiresIn=expires_seconds,
+    )

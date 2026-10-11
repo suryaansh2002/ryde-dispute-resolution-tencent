@@ -85,7 +85,7 @@ Logfire spans every agent run (configured at server startup). SSE: `/events/case
 
 ### Step 6 — Submission (runs alongside steps 1–5)
 - **Public repo:** `.env` with live keys is in git history. Rotate every key (Groq, Neon, object storage, Logfire), then publish clean history, e.g. a fresh public repo with one squashed commit. The current repo must not be made public as-is.
-- **CodeBuddy proof:** at least 3 screenshots of a real CodeBuddy session (e.g. re-running the data pipeline there).
+- **CodeBuddy / WorkBuddy proof:** assigned to Dev B. Real tasks and a capture checklist are in [RydeResolve-CodeBuddy-WorkBuddy-Proof.md](RydeResolve-CodeBuddy-WorkBuddy-Proof.md).
 - Architecture diagrams exported, title / short blurb / description, README, demo script, video.
 
 ## 4. Decisions taken (defaults; change them in code, not here)
