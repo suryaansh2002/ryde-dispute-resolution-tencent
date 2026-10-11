@@ -5,17 +5,28 @@ canonical `CaseFile` per case.
 
 Design choice, stated plainly: rather than trusting the model to transcribe raw DB rows
 into `CaseFile`'s output fields byte-for-byte (expensive, and the only way a free-form
-LLM output could introduce drift from the real data), the output validator reconstructs
-every raw-data field directly from the `TripBundle` the DB Query tool fetched this run.
-That makes "every evidence reference resolves to a real Postgres row" true by
-construction, not just by validation. The model's actual judgment call is `policy_tags` —
-deciding what to search for and when — mirroring how `policy_rag` works for the
-advocates (system design §4 rule 1 validates that the same way: every tag must trace to
-an actual `policy_rag` call this run).
+LLM output could introduce drift from the real data), every raw-data field is
+reconstructed directly from the `TripBundle` the DB Query tool fetched this run. That
+makes "every evidence reference resolves to a real Postgres row" true by construction,
+not just by validation. The model's actual judgment call is `policy_tags` — deciding
+what to search for and when — mirroring how `policy_rag` works for the advocates
+(system design §4 rule 1 validates that the same way: every tag must trace to an actual
+`policy_rag` call this run).
+
+The agent's own `output_type` is deliberately just the small `policy_tags` list, not the
+full `CaseFile` — asking the model to also echo a (potentially 100+ point) `gps_trace`
+back through its own tool-call output just to have it discarded wastes tokens and, at
+realistic trace sizes, occasionally breaks the model's own tool-call formatting (seen in
+practice against generated data: Groq's qwen3 mangled its structured output once traces
+got past ~50 points). Reconstruction into the real `CaseFile` happens in
+`run_evidence_collection`, after the agent returns, not inside pydantic-ai's output
+validation — the public contract (`run_evidence_collection` returns a `CaseFile`) is
+unchanged.
 """
 
 from dataclasses import dataclass, field
 
+from pydantic import BaseModel
 from pydantic_ai import Agent, ModelRetry, RunContext
 
 from app.config import settings
@@ -48,10 +59,14 @@ Steps:
    chat log / evidence actually describe, and call policy_rag with focused queries (not
    one query for the whole case). Only tags you actually retrieve this way can appear in
    your final `policy_tags` — do not invent a tag's chunk_id or excerpt.
-3. Produce a CaseFile. Only `policy_tags` is truly yours; everything else is
-   reconstructed from step 1's data, so get that part right and don't worry about the
-   rest.
+3. Output `policy_tags`: the chunk_id/policy_id/excerpt of every clause you decided is
+   relevant, copied exactly from what policy_rag returned. That's the only output you
+   produce — the rest of the case file is assembled separately from step 1's data.
 """
+
+
+class PolicyTags(BaseModel):
+    policy_tags: list[PolicyTag] = []
 
 
 @dataclass
@@ -149,7 +164,7 @@ def _reconstruct(deps: EvidenceCollectionDeps, model_tags: list[PolicyTag]) -> C
 
 evidence_collection_agent = Agent(
     settings.agent_model,
-    output_type=CaseFile,
+    output_type=PolicyTags,
     deps_type=EvidenceCollectionDeps,
     system_prompt=SYSTEM_PROMPT,
     name="evidence_collection",
@@ -185,14 +200,14 @@ async def policy_rag(ctx: RunContext[EvidenceCollectionDeps], query: str) -> lis
 
 
 @evidence_collection_agent.output_validator
-async def validate_and_reconstruct(
-    ctx: RunContext[EvidenceCollectionDeps], out: CaseFile
-) -> CaseFile:
+async def validate_db_query_was_called(
+    ctx: RunContext[EvidenceCollectionDeps], out: PolicyTags
+) -> PolicyTags:
     if ctx.deps.bundle is None:
         if ctx.retry < ctx.max_retries:
-            raise ModelRetry("Call db_query before producing the case file.")
+            raise ModelRetry("Call db_query before producing policy_tags.")
         raise ModelRetry("db_query was never called — cannot assemble a case file without it.")
-    return _reconstruct(ctx.deps, out.policy_tags)
+    return out
 
 
 async def run_evidence_collection(
@@ -215,4 +230,4 @@ async def run_evidence_collection(
         f"tier: {triage_result.tier}",
         deps=deps,
     )
-    return result.output
+    return _reconstruct(deps, result.output.policy_tags)

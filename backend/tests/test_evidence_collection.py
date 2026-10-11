@@ -71,21 +71,9 @@ def call_tool(name: str, **args):
 
 
 def answer(policy_tags):
-    return lambda info: ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, {
-        "case_id": "WRONG", "trip_id": "WRONG", "category": "safety_incident",
-        "complainer_role": "driver", "complainer_id": "WRONG", "complainee_id": "WRONG",
-        "chat_log": [], "pickup_lat": 0.0, "pickup_lng": 0.0, "gps_trace": [],
-        "payment": {"base_fare": 0, "platform_fee": 0, "taxes": 0, "total_fare": 0},
-        "complainer_profile": {
-            "user_id": "x", "role": "rider", "dispute_count_30d": 0,
-            "upheld_denied_ratio": None, "rating_trend": None, "account_age_days": 0,
-        },
-        "complainee_profile": {
-            "user_id": "x", "role": "driver", "dispute_count_30d": 0,
-            "upheld_denied_ratio": None, "rating_trend": None, "account_age_days": 0,
-        },
-        "policy_tags": policy_tags,
-    })])
+    return lambda info: ModelResponse(parts=[
+        ToolCallPart(info.output_tools[0].name, {"policy_tags": policy_tags})
+    ])
 
 
 async def run_it(model):
@@ -106,7 +94,7 @@ async def test_raw_fields_are_reconstructed_from_the_bundle_not_the_model():
         answer([GOOD_TAG]),
     )
     case_file = await run_it(model)
-    # None of these came from the model's (deliberately wrong) answer.
+    # None of these came from the model at all — it only ever produces policy_tags.
     assert case_file.case_id == "CASE-0001"
     assert case_file.trip_id == "TRIP-0001"
     assert case_file.category == DisputeCategory.ROUTE_DEVIATION
