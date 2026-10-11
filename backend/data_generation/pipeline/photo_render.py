@@ -55,8 +55,11 @@ def _seat(rng: random.Random) -> Image.Image:
     # seat belt buckles
     for x in (330, 610):
         d.rounded_rectangle((x, 290, x + 22, 330), 5, fill=(20, 20, 22))
-    # fabric grain
-    noise = Image.effect_noise((W, H), 18).convert("RGB")
+    # fabric grain, from the seeded RNG so the same (severity, seed) renders identical bytes
+    # (Pillow's effect_noise isn't seedable). Uniform bytes rescaled to roughly the same
+    # spread as a sigma-18 Gaussian around 128.
+    raw = Image.frombytes("L", (W, H), rng.randbytes(W * H))
+    noise = raw.point(lambda v: int(128 + (v - 128) * 0.245)).convert("RGB")
     img = ImageChops.add(img, noise, scale=1.0, offset=-60)
     return img
 

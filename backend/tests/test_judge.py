@@ -180,3 +180,28 @@ def test_policy_fixed_amounts_are_computed_in_code():
     assert _policy_amount(route, RemedyType.PARTIAL_REFUND) == (formula or None)
     # The cleaning fee's tier is the Judge's call, not a fixed figure.
     assert _policy_amount(load("property_damage"), RemedyType.CLEANING_REPAIR_FEE) is None
+
+
+async def test_upheld_verdict_without_a_policy_gets_its_categorys():
+    from pathlib import Path
+
+    from app.agents.judge.agent import JudgeDeps, validate_judge_citations
+    from app.schemas import CaseFile, DecisionOutcome, JudgeVerdict, Remedy, RemedyType
+
+    files = Path(__file__).resolve().parents[1] / "data_generation" / "fixtures" / "case_files"
+    case = CaseFile.model_validate_json((files / "property_damage.json").read_text())
+    case = case.model_copy(update={"policy_tags": []})
+    verdict = JudgeVerdict(
+        outcome=DecisionOutcome.CLAIM_UPHELD,
+        remedy=Remedy(type=RemedyType.CLEANING_REPAIR_FEE, amount=40.0),
+        reasoning=[{"finding": "spill", "cites": [case.photos[0].evidence_id]}],
+        policy_applied=None, confidence=0.9,
+    )
+
+    class Ctx:
+        deps = JudgeDeps(case_file=case)
+        retry = 5
+        max_retries = 3
+
+    out = await validate_judge_citations(Ctx(), verdict)
+    assert out.policy_applied == "POL-04"

@@ -24,7 +24,15 @@ from app.agents.retry import run_agent
 from app.config import settings
 from app.rules.escalation import CONFIDENCE_THRESHOLD, matching_bucket_rules
 from app.rules.policy_math import no_show_fees
-from app.schemas import Argument, CaseFile, CaseRole, DecisionOutcome, JudgeVerdict, RemedyType
+from app.schemas import (
+    Argument,
+    CaseFile,
+    CaseRole,
+    DecisionOutcome,
+    DisputeCategory,
+    JudgeVerdict,
+    RemedyType,
+)
 from app.tools.evidence_lookup import ROUTE_COMPARISON, evidence_index
 from app.tools.policy_rag import search_policy
 
@@ -195,6 +203,13 @@ _DESTINATIONS = {
 }
 
 
+_CATEGORY_POLICY = {
+    DisputeCategory.ROUTE_DEVIATION: "POL-02",
+    DisputeCategory.NO_SHOW_CHARGE: "POL-03",
+    DisputeCategory.PROPERTY_DAMAGE: "POL-04",
+}
+
+
 def _policy_amount(case_file: CaseFile, remedy_type: RemedyType) -> float | None:
     """The amount the policy fixes for this remedy, computed in code (Policy doc §2, §3):
     a waiver returns exactly the fee charged; a route refund is exactly the formula's
@@ -223,10 +238,16 @@ async def validate_judge_citations(ctx: RunContext[JudgeDeps], out: JudgeVerdict
     valid_policies = (
         {t.policy_id for t in deps.case_file.policy_tags}
         | deps.argued_policy_ids | deps.retrieved_policy_ids
+        | {p for p in [_CATEGORY_POLICY.get(deps.case_file.category)] if p}
     )
     fixed_amount = _policy_amount(deps.case_file, out.remedy.type)
+    # Each category is governed by one policy section; an upheld verdict that forgot to
+    # name it gets the category's own (clerical, like the amounts above).
+    policy = _policy_id(out.policy_applied) or (
+        _CATEGORY_POLICY.get(deps.case_file.category) if out.outcome in _UPHELD else None
+    )
     out = out.model_copy(update={
-        "policy_applied": _policy_id(out.policy_applied),
+        "policy_applied": policy,
         "remedy": out.remedy.model_copy(update={
             "destination": _DESTINATIONS.get(out.remedy.type),
             **({"amount": fixed_amount} if fixed_amount is not None else {}),
