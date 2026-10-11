@@ -12,6 +12,17 @@
 
 ## 0. Ownership split
 
+> **Current work distribution (2026-10-11):** see [Execution Plan §0](RydeResolve-Execution-Plan.md#0-who-does-what-now-work-distribution).
+> - **Dev A** built the entire codebase: both halves of the original split below, plus Image Analysis, the golden run and the UI overhaul. Dev A now owns the key rotation and public repo, the demo video and the submission form.
+> - **Dev B** owns:
+>   - the CodeBuddy/WorkBuddy proof (the hard gate);
+>   - the Render and Vercel deploys;
+>   - the WorkBuddy-drafted submission copy and demo script;
+>   - the cover image;
+>   - re-pointing the deploys at the public repo.
+>
+> The table below is the original plan, kept for context.
+
 Two developers, split by **pipeline stage**, each owning a full-stack vertical slice — backend agent/rules logic, the schema it needs, and the frontend surface built on top of it — rather than one dev owning all backend and the other all frontend/data/infra.
 
 | Owner | Owns | Source doc |

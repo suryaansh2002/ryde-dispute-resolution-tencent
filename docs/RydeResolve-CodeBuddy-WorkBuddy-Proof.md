@@ -2,13 +2,13 @@
 
 **Owner:** Dev B (@shiv0112)
 **Why this matters:** the handbook makes it a hard gate. Every project must be built on at least one of CodeBuddy or WorkBuddy, with proof of usage, or it doesn't proceed to scoring. The submission form asks for chat history (at least 3 screenshots) or API call logs, and a one-paragraph "how we used CodeBuddy/WorkBuddy and what it was like".
-**Status:** nothing captured yet. Start today; screenshots taken during real work are much more convincing than ones reconstructed at the end.
+**Status:** nothing captured yet. This is the critical path to submission (Execution Plan §0, #1). Start today; screenshots taken during real work are much more convincing than ones reconstructed at the end.
 
 ---
 
 ## The rule we're following
 
-Do **real, useful work** in CodeBuddy and WorkBuddy, then screenshot and export that work. Don't stage re-creations of code that was already written elsewhere and present them as how it was built. Judges can compare the timestamps in the screenshots with our git history. The tasks below are all things the project actually still needs, chosen so they don't collide with what @suryaansh2002 is working on (the frontend and execution-plan step 5: Image Analysis, golden-run, prompt tuning).
+Do **real, useful work** in CodeBuddy and WorkBuddy, then screenshot and export that work. Don't stage re-creations of code that was already written elsewhere and present them as how it was built. Judges can compare the timestamps in the screenshots with our git history. The tasks below are all things the project actually still needs. Everything else in the code is finished (as of 2026-10-11: frontend, Image Analysis, golden run 22/22), so nothing here collides with other work. Where this fits in the overall split: [Execution Plan §0](RydeResolve-Execution-Plan.md).
 
 ## 1. Setup (about 15 minutes)
 
