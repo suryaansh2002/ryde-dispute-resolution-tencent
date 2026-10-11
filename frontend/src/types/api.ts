@@ -233,3 +233,41 @@ export interface Accepted {
   state: string
   events: string
 }
+
+export interface Stats {
+  cases: number
+  by_state: Partial<Record<CaseState, number>>
+  by_category: Partial<Record<Category, number>>
+  decided_automatically: number
+  decided_by_human: number
+  awaiting_human: number
+  median_seconds_to_decision: number | null
+  escalation_reasons: Record<string, number>
+  trips: number
+  users: number
+}
+
+export interface EvidenceItem {
+  kind:
+    | 'chat_message'
+    | 'photo'
+    | 'traffic_event'
+    | 'payment'
+    | 'gps_trace'
+    | 'behavior_profile'
+    | 'pickup_proximity'
+    | 'route'
+    | 'route_comparison'
+  data: any // eslint-disable-line @typescript-eslint/no-explicit-any -- shape depends on kind
+}
+
+export type EvidenceIndex = Record<string, EvidenceItem>
+
+export interface DemoScenario {
+  trip_id: string
+  user_id: string
+  display_name: string
+  other_party_name: string
+  role: Role
+  category: Category
+}

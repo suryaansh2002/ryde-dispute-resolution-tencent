@@ -62,3 +62,26 @@ def test_background_task_failure_doesnt_crash_the_request(ran, monkeypatch):
     monkeypatch.setattr(cases_api.pipeline, "process_claim", boom)
     resp = TestClient(app).post("/cases?background=true", json=CLAIM)
     assert resp.status_code == 202
+
+
+def test_party_evidence_view_hides_behaviour_profiles(monkeypatch):
+    from pathlib import Path
+
+    raw = (
+        Path(__file__).resolve().parents[1]
+        / "data_generation" / "fixtures" / "case_files" / "no_show_charge.json"
+    ).read_text()
+
+    class Conn:
+        async def close(self):
+            pass
+
+    monkeypatch.setattr(cases_api, "get_connection", _async(Conn()))
+    monkeypatch.setattr(cases_api, "get_case_row", _async({"case_file": raw}))
+    client = TestClient(app)
+    operator = client.get("/cases/CASE-0001/evidence?view=operator").json()
+    party = client.get("/cases/CASE-0001/evidence?view=party").json()
+    assert "PROFILE-COMPLAINER" in operator and "GPS-TRACE" in operator
+    assert not any(item["kind"] == "behavior_profile" for item in party.values())
+    assert party.keys() == operator.keys() - {"PROFILE-COMPLAINER", "PROFILE-COMPLAINEE"}
+    assert client.get("/cases/CASE-0001/evidence?view=admin").status_code == 422

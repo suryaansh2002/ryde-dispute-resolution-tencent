@@ -18,6 +18,7 @@ from app.data.db import get_connection
 from app.orchestrator import adjudication, pipeline
 from app.schemas import Argument, CaseFile, DecisionObject, DisputeCategory
 from app.schemas.triage import TriageResult
+from app.tools.evidence_lookup import evidence_index
 
 router = APIRouter(tags=["cases"])
 log = logging.getLogger(__name__)
@@ -177,3 +178,31 @@ async def submit_response(
         response.status_code = status.HTTP_202_ACCEPTED
         return _accepted(case_id, "awaiting_response")
     return adjudication_response(await adjudication.adjudicate(case_id))
+
+
+@router.get("/cases/{case_id}/evidence")
+async def case_evidence(
+    case_id: str, view: str = Query("operator", pattern="^(operator|party)$")
+) -> dict:
+    """Every citable evidence item in the case file, keyed by the ref ids the agents cite
+    (MSG-0012, ROUTE-COMPARISON, PICKUP-PROXIMITY…). The same index the citation
+    validators check against, so what the UI shows is exactly what the agents saw.
+
+    `view=party` leaves out both parties' behaviour profiles (dispute history, ratings):
+    the other side's record isn't shown to a rider or driver."""
+    conn = await get_connection()
+    try:
+        case = await get_case_row(conn, case_id)
+    finally:
+        await conn.close()
+    if case is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"no case {case_id!r}")
+    case_file = load_case_file(case)
+    if case_file is None:
+        return {}
+    index = evidence_index(case_file)
+    return {
+        ref: {"kind": item.kind, "data": item.data}
+        for ref, item in index.items()
+        if not (view == "party" and item.kind == "behavior_profile")
+    }

@@ -116,3 +116,35 @@ async def system_stats(conn: asyncpg.Connection) -> dict[str, Any]:
         "trips": await conn.fetchval("SELECT count(*) FROM trips"),
         "users": await conn.fetchval("SELECT count(*) FROM users"),
     }
+
+
+# Who plausibly files each kind of dispute, for the one-click demo scenarios.
+_FILER_ROLE = {
+    "route_deviation": "rider",
+    "no_show_charge": "rider",
+    "property_damage": "driver",
+    "safety_incident": "rider",
+}
+
+
+async def pick_scenario(conn: asyncpg.Connection, category: str) -> dict[str, Any] | None:
+    """A recent, unclaimed trip designed for `category`, with the party who'd file it.
+    Safety scenarios fall back to any unclaimed trip: the claim text makes it a safety
+    case, not the trip."""
+    role = _FILER_ROLE[category]
+    row = await conn.fetchrow(
+        f"""SELECT t.id AS trip_id, t.{role}_id AS user_id, u.display_name,
+                   other.display_name AS other_party_name, t.completed_at
+            FROM trips t
+            JOIN users u ON u.id = t.{role}_id
+            JOIN users other ON other.id = t.{"driver" if role == "rider" else "rider"}_id
+            LEFT JOIN cases c ON c.trip_id = t.id
+            WHERE c.id IS NULL
+              AND t.completed_at >= now() - interval '29 days'
+              AND (t.category_hint = $1 OR ($1 = 'safety_incident' AND t.category_hint = 'clean'))
+            ORDER BY random() LIMIT 1""",
+        category,
+    )
+    if row is None:
+        return None
+    return {**dict(row), "role": role, "category": category}

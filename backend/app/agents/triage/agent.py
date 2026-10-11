@@ -5,6 +5,7 @@ reads only the raw claim submission, before a `CaseFile` exists.
 
 from pydantic_ai import Agent
 
+from app.agents.retry import run_agent
 from app.config import settings
 from app.schemas.triage import TriageResult
 
@@ -44,5 +45,5 @@ triage_agent = Agent(
 
 async def run_triage(claim_text: str, trip_id: str) -> TriageResult:
     """`triage_result = await run_triage(claim_text, trip_id)` (system design §6 step 2)."""
-    result = await triage_agent.run(f"trip_id: {trip_id}\n\nclaim:\n{claim_text}")
+    result = await run_agent(triage_agent, f"trip_id: {trip_id}\n\nclaim:\n{claim_text}")
     return result.output
