@@ -21,7 +21,8 @@ Everything under `docs/` is the specification the implementation must be built a
 1. [`docs/RydeResolve-System-Design.md`](docs/RydeResolve-System-Design.md) — architecture, agent roster, API surface, DB schema, escalation logic. This is the primary spec.
 2. [`docs/RydeResolve-Policy-and-Prevention-Rules.md`](docs/RydeResolve-Policy-and-Prevention-Rules.md) — the actual policy corpus (for `policy_chunks`/RAG) and the six deterministic Prevention Rules.
 3. [`docs/RydeResolve-Data-Sources-and-Strategy.md`](docs/RydeResolve-Data-Sources-and-Strategy.md) — where each data point comes from (real API, synthetic, semi-dummy) and the synthetic-dataset generation pipeline.
-4. [`docs/RydeResolve-Development-Roadmap.md`](docs/RydeResolve-Development-Roadmap.md) — day-by-day build plan and ownership split (useful for sequencing work, not for architecture facts).
+4. [`docs/RydeResolve-Development-Roadmap.md`](docs/RydeResolve-Development-Roadmap.md) — original day-by-day plan and ownership split. **Superseded for sequencing by #5.**
+5. [`docs/RydeResolve-Execution-Plan.md`](docs/RydeResolve-Execution-Plan.md) — **the current plan to submission.** One critical path in order; the Dev A / Dev B split is suspended. Check it before picking up work.
 
 Each doc has a "Status" line at the top noting its version — the System Design doc is the source of truth on any conflict.
 
