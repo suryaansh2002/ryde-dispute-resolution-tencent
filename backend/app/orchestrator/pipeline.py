@@ -34,6 +34,7 @@ from app.data.cases import (
     update_case,
 )
 from app.data.db import get_connection
+from app.data.usage import current_case_id
 from app.orchestrator.state_machine import CaseStateMachine
 from app.rules.prevention import PreventionAction, PreventionContext, run_prevention_rules
 from app.schemas import CaseFile, CaseRole, CaseState, DisputeCategory, TriageResult
@@ -110,6 +111,7 @@ async def open_claim(
 async def process_claim(opened: OpenedClaim) -> FileClaimResult:
     """Triage → Prevention Rules 3/5/6 → Evidence Collection → `awaiting_response`."""
     case_id, trip_id, trip = opened.case_id, opened.trip_id, opened.trip
+    current_case_id.set(case_id)  # attributes every model call below to this case
     conn = await get_connection()
     try:
         sm = CaseStateMachine(case_id=case_id, emit=trace_emitter(conn))
