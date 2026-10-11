@@ -70,7 +70,7 @@ Logfire spans every agent run (configured at server startup). SSE: `/events/case
 
 ### Step 4 — Frontend (~1.5 days) — ✅ BUILT 2026-10-11, deploy assigned to Dev B
 
-`frontend/`: React + Vite + TypeScript (strict). Persona picker, Rider/Driver panels (file a claim with photo upload, respond, decision document), case page with live progress, System Trace page (advocates side by side, the Judge's card, every gate) and the L2 console (live queue, ratify/override). Tested in a real browser (Playwright, outside the repo) against the local backend, with zero console errors. Paths covered: route deviation file → respond → decision; property damage with a real photo upload → "decide now"; safety claim → straight to L2 → override; escalated case → ratify. Backend support added for it: `?background=true` filing/response (202 + watch the stream), `POST /uploads`, `GET /cases`, `GET /cases/{id}/view`, a DB connection pool (requests went from ~2 s each to the network round trip). **Vercel deploy: Part 2 of [RydeResolve-Deploy-Backend.md](RydeResolve-Deploy-Backend.md) (Dev B).**
+`frontend/`: React + Vite + TypeScript (strict). v1 (persona picker, panels, trace, L2 console) has been superseded by the UX overhaul below; see `frontend/README.md` for the current pages. Tested in a real browser (Playwright, outside the repo) against the local backend, with zero console errors. Paths covered: route deviation file → respond → decision; property damage with a real photo upload → "decide now"; safety claim → straight to L2 → override; escalated case → ratify. Backend support added for it: `?background=true` filing/response (202 + watch the stream), `POST /uploads`, `GET /cases`, `GET /cases/{id}/view`, a DB connection pool (requests went from ~2 s each to the network round trip). **Vercel deploy: Part 2 of [RydeResolve-Deploy-Backend.md](RydeResolve-Deploy-Backend.md) (Dev B).**
 
 - React + Vite + TypeScript, a persona picker, an API client and the SSE connection.
 - **Rider/Driver panels:** pick a trip, file a claim, upload a photo, respond to a claim, see the decision document with the other side's private details hidden.
@@ -112,7 +112,7 @@ Logfire spans every agent run (configured at server startup). SSE: `/events/case
 | Property Damage fee with a photo but no receipt | Exactly the tier's scheduled amount ($40 / $120 / $200) | Our own rule, not Ryde-sourced: the system collects photos, not cleaning receipts |
 | Where Image Analysis runs | Once per photo, right after Evidence Collection assembles the case file; the finding is attached to the photo. Advocates read it with their `image_analysis` tool. | Deviation from System Design §6, where the advocates call vision themselves. This keeps object storage behind Evidence Collection, gives both advocates the identical finding, and lets the Judge and compliance see it |
 | Photo → fee tier | The model names the mess (spill, mud, vomit…); code maps it to Ryde's tier table. A low-confidence finding (< 0.5), or a photo that isn't a vehicle interior, supports no tier, and the case goes to a person via the Judge | Tier table is Ryde-sourced; the mapping code and the 0.5 threshold are our own |
-| Cut order if time runs out | Image Analysis → golden-run dashboard → L2 console polish → real OneMap routes | — |
+| Cut order if time runs out | Done, apart from real OneMap routes, which are optional: they'd need regenerating the dataset and re-tuning | — |
 
 ## 5. Needs a person, not code
 

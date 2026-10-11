@@ -1,6 +1,14 @@
 # RydeResolve — System Design & Architecture
 
-**Status:** v13 — swaps object storage from Cloudflare R2 to Neon Object Storage (same Neon project/branch as Postgres, dropping R2 as a separate service) and locks the agent model string to `groq:qwen/qwen3.8-27b`; no other change from v12. v12 was: full five-agent roster, one unified section, one diagram, one table. Section 6 is no longer split into sub-sections by agent tier — Triage, Evidence Collection, Rider Advocate, Driver Advocate, and Judge are all presented together, in the body of §6 itself, with no "§6.1 core agents" vs. "§6.2 other agents" split. Evidence Collection is a full `pydantic_ai.Agent` — the fourth member of the roster alongside Triage, the two Advocates, and the Judge — not deterministic code and not a separate phase-2 addition. The end-to-end pipeline is: **Triage Agent** (auto-categorize + set safety flag) → **Prevention rules** (deterministic gate) → **Evidence Collection Agent** (assembles the `CaseFile`, with DB/Object Storage/Policy RAG tools) → parallel Rider/Driver Advocates (each with Evidence Lookup, Image Analysis, and Policy RAG tools) → Judge (with Policy RAG, Prevention-Rule Bucket, and Escalate-to-L2 tools) → a two-phase deterministic escalation gate (confidence threshold + case-classification bucket) → compliance check → decision document. The only tiering left anywhere in §6 is agents (reasoning) vs. deterministic gates (fixed rules) — never "core agents" vs. "supporting agents." Two items remain explicitly unresolved: whether verified evidence is shown to the complainee post-L2, and whether Prevention rules need any LLM assistance (see §6.2).
+**Status:** v14 (2026-10-11): brings the doc in line with what's built. Changes:
+- Image Analysis runs once per photo after evidence assembly; the advocates' tool reads the stored finding (§6).
+- Policy facts and fixed dollar amounts are computed in code (§6.4).
+- `llm_usage` added to the data layer (§5).
+- The SSE design is now Postgres LISTEN/NOTIFY rather than an in-process queue (§4).
+- The API table lists the endpoints that actually exist (§4).
+- The golden set is 22 cases (§5).
+
+Nothing else changed. v13 — swaps object storage from Cloudflare R2 to Neon Object Storage (same Neon project/branch as Postgres, dropping R2 as a separate service) and locks the agent model string to `groq:qwen/qwen3.8-27b`; no other change from v12. v12 was: full five-agent roster, one unified section, one diagram, one table. Section 6 is no longer split into sub-sections by agent tier — Triage, Evidence Collection, Rider Advocate, Driver Advocate, and Judge are all presented together, in the body of §6 itself, with no "§6.1 core agents" vs. "§6.2 other agents" split. Evidence Collection is a full `pydantic_ai.Agent` — the fourth member of the roster alongside Triage, the two Advocates, and the Judge — not deterministic code and not a separate phase-2 addition. The end-to-end pipeline is: **Triage Agent** (auto-categorize + set safety flag) → **Prevention rules** (deterministic gate) → **Evidence Collection Agent** (assembles the `CaseFile`, with DB/Object Storage/Policy RAG tools) → parallel Rider/Driver Advocates (each with Evidence Lookup, Image Analysis, and Policy RAG tools) → Judge (with Policy RAG, Prevention-Rule Bucket, and Escalate-to-L2 tools) → a two-phase deterministic escalation gate (confidence threshold + case-classification bucket) → compliance check → decision document. The only tiering left anywhere in §6 is agents (reasoning) vs. deterministic gates (fixed rules) — never "core agents" vs. "supporting agents." Two items remain explicitly unresolved: whether verified evidence is shown to the complainee post-L2, and whether Prevention rules need any LLM assistance (see §6.2).
 **Runway assumed:** ~2 weeks, 2 developers, AI coding assistants as a force multiplier
 **Target:** live, effectively-zero-cost deployment reachable by judges
 
@@ -137,13 +145,23 @@ flowchart LR
 | `/cases/{id}/decision` | GET | Fetch the decision document |
 | `/l2/queue` | GET | Safety-bypassed cases awaiting human ratification |
 | `/l2/cases/{id}/ratify` | POST | Human ratification action |
-| `/golden-run` | POST | Trigger the golden-case suite, computing real dashboard numbers |
+| `/cases/{id}/adjudicate` | POST | Run the hearing now, without waiting for a response (demo shortcut; also used by the golden run) |
+| `/cases/{id}/view` | GET | Case summary for the party pages: names, claim text, response |
+| `/cases/{id}/evidence` | GET | Every citable evidence item, keyed by the ref the agents cite (`?view=party` hides behaviour profiles) |
+| `/uploads`, `/evidence/{id}/content` | POST, GET | Pre-filing photo upload (returns kind, hash, key); a short-lived presigned link to view an evidence object |
+| `/golden-run` | POST, GET | Run the golden-case suite for real (background); report pass rate, routing and per-case results |
+| `/stats`, `/policy/{id}` | GET | Live numbers for the landing page; one policy section's clauses, for reading a cited policy in full |
+| `/demo/personas`, `/demo/scenario`, `/demo/sample-photo`, `/users/{id}/trips`, `/users/{id}/cases` | GET | Demo navigation: no login, a persona picker over the synthetic users, one-click scenarios, synthetic damage photos |
 | `/events/cases/{id}` | GET (SSE) | Live trace + state-transition stream for one case (`text/event-stream`; rider, driver, and trace panel all subscribe here) |
 | `/events/l2` | GET (SSE) | New-case alerts for the L2 queue, decoupled from any single `case_id` |
 
 **Orchestrator (the spine):** a case state machine (`opened → triage → assembling → awaiting_response → adjudicating → decided`, plus `safety_bypassed` and `declined_insufficient_evidence` branches) with clocks for response deadlines and default outcomes on non-response. Every transition and agent call emits a trace event — written to Postgres for durability, pushed over SSE for liveness. The trace panel is a live view of the DB, never the source of truth itself.
 
-**SSE implementation note:** FastAPI serves each `/events/...` endpoint as a `StreamingResponse` yielding `text/event-stream` chunks, backed by an in-process pub/sub (an `asyncio.Queue` per open connection, fed by the trace event bus). Because it's plain HTTP, it works through the same reverse proxies and free-tier hosting as everything else with no protocol-upgrade edge cases to worry about — the one thing to explicitly disable is response buffering/compression on that route, so events flush to the client as they're produced rather than batching.
+**SSE implementation note:** FastAPI serves each `/events/...` endpoint as a `text/event-stream` (sse-starlette). As built (v14), Postgres is the event bus rather than an in-process queue:
+- Every trace event is a `trace_events` row plus a `pg_notify`.
+- Each open stream first replays the case's history from the table, then `LISTEN`s and re-reads on each notification, with a 5-second recheck as a backstop.
+- `Last-Event-ID` resumes a dropped connection without duplicates.
+- Background work and the stream can therefore live in different processes, and nothing is lost on restart. Because it's plain HTTP, it works through the same reverse proxies and free-tier hosting as everything else with no protocol-upgrade edge cases to worry about — the one thing to explicitly disable is response buffering/compression on that route, so events flush to the client as they're produced rather than batching.
 
 **Async execution:** agent calls are I/O-bound (Groq, pgvector), so they run as async tasks inside the FastAPI process — no separate task queue needed at this scale.
 
@@ -172,7 +190,8 @@ One provider, two services, sharing the same Neon project/branch: Postgres for e
 | `behavior_profiles` | per-rider/per-driver rolling stats — dispute count, upheld/denied ratio, rating trend, account age |
 | `decisions` | decision objects: outcome, remedy, per-finding citations, confidence, `human_ratified` |
 | `trace_events` | full audit log of every agent/state/rule event — backs both the trace panel and the dashboard's real numbers |
-| `golden_cases` | the 30–50 hand-labeled cases and latest run results |
+| `golden_cases` | the labelled cases (22 in the current dataset, labelled from the generator's ground truth) and each one's latest golden-run result |
+| `llm_usage` | one row per model call (every agent run and every Image Analysis call): case, agent, model, input/output tokens, requests, tool calls, latency. No cost column: cost is tokens × the provider's current price, computed at query time |
 | `policy_chunks` | policy corpus text, source metadata, and a `vector` column (pgvector) for embeddings |
 
 `behavior_profiles` exists because the brief names historical behavior profiles as one of the four data types the required agents operate on, alongside GPS points, chat logs, and fare/timestamp data — so it's part of the case file every advocate and the Judge sees, not an optional add-on.
@@ -226,7 +245,11 @@ flowchart TD
 
 - **Triage Agent.** Runs first, before Prevention rules even fire. Its `is_safety` output is the single trigger for the mandatory safety hard-stop — without it up front, a claimant's own category selection would be the only signal, and a mis-filed safety incident (by accident, or deliberately to dodge human review) could reach an LLM adjudicator. Its `category` output determines which policy clauses, evidence checks, and fee schedules apply for the rest of the pipeline.
 - **Evidence Collection Agent.** Runs right after Prevention rules, before either advocate. It's the only agent in the roster with direct Postgres/Neon Object Storage access — deliberately: every other agent works only from what this one hands it, keeping the surface area that touches raw data down to exactly one place. It pulls both parties' text/chat and photos, GPS/telemetry, payment data, and both parties' `behavior_profiles` into one canonical `CaseFile`, using DB Query, Object Storage Fetch, and Policy RAG tools. Its output validator (§4, rule 6) is what keeps that `CaseFile` trustworthy now that assembling it is a reasoning step, not a fixed query.
-- **Rider Advocate & Driver Advocate.** Run in parallel against the identical `CaseFile`, each building and citing its side's case using Evidence Lookup (scoped to that `CaseFile`'s own already-assembled data, not raw DB access), Image Analysis, and Policy RAG.
+- **Rider Advocate & Driver Advocate.** Run in parallel against the identical `CaseFile`, each building and citing its side's case using Evidence Lookup (scoped to that `CaseFile`'s own already-assembled data, not raw DB access), Image Analysis, and Policy RAG. *As built (v14):*
+  - The vision call itself runs once per photo, right after the Evidence Collection step verifies the photo exists, and the finding is attached to the photo in the `CaseFile`.
+  - Each advocate's Image Analysis tool returns that stored finding.
+  - This keeps object storage behind Evidence Collection, gives both advocates the identical finding, and lets the Judge and the compliance check see it too.
+  - The vision model reports only what it sees: the mess type, extent and a description. Code maps that to the Policy §4 fee tier.
 - **Judge.** Receives the `CaseFile` plus both `Argument`s, and independently verifies policy citations and escalation-bucket classification through its own tools before producing a `DecisionObject`.
 
 Cut any one of the five and a specific guarantee stops holding: cut Triage, and safety routing becomes claimant-declared; cut Evidence Collection, and the advocates would need their own raw-data access, reopening the untraceable-fetch problem this architecture exists to close; cut either advocate, and the Judge loses the symmetric hearing the whole system is built around; cut the Judge, and nothing produces a decision at all.
@@ -237,7 +260,7 @@ Cut any one of the five and a specific guarantee stops holding: cut Triage, and 
 |---|---|---|---|---|
 | Triage Agent | Raw claim text + trip ID (before the case file exists) | `TriageResult {category, tier, is_safety}` | None — reads only the raw claim submission | Runs first, ahead of Prevention rules; its `is_safety` output feeds straight into the deterministic hard-stop, never a reasoning step that could be talked out of routing correctly |
 | Evidence Collection Agent | `trip_id`, `category`, and Triage's `TriageResult` | `CaseFile {text/chat, photos, GPS/telemetry, payment data, both parties' behavior_profiles}` | **DB Query** (Postgres: `trips`, `chat_messages`, `payments`, `behavior_profiles`), **Object Storage Fetch** (evidence photo retrieval from Neon Object Storage), **Policy RAG** (tags relevant precedent/policy into the case file) | The only agent in the roster with direct raw-data access; output validator confirms every evidence reference it produces resolves to a real Postgres row or Neon Object Storage object (§4, rule 6) before the `CaseFile` goes anywhere |
-| Rider Advocate | `CaseFile` (from the Evidence Collection Agent) | `Argument {text, cites, policy_cites, confidence}` | **Evidence Lookup** (read-only, scoped to this `CaseFile`'s own already-assembled data — not raw DB access), **Image Analysis** (vision call against a specific photo evidence ID), **Policy RAG** (search `policy_chunks`) | Output validator rejects any `cites` not present in the `CaseFile` or returned by a tool call actually made this run, and any `policy_cites` not returned by an actual Policy RAG call |
+| Rider Advocate | `CaseFile` (from the Evidence Collection Agent) | `Argument {text, cites, policy_cites, confidence}` | **Evidence Lookup** (read-only, scoped to this `CaseFile`'s own already-assembled data — not raw DB access), **Image Analysis** (the stored vision finding for a specific photo evidence ID; see above), **Policy RAG** (search `policy_chunks`) | Output validator rejects any `cites` not present in the `CaseFile` or returned by a tool call actually made this run, and any `policy_cites` not returned by an actual Policy RAG call |
 | Driver Advocate | Same | Same | Same three tools, mirrored | Same validator |
 | Judge | `CaseFile` + both `Argument`s | `DecisionObject` (schema in §7, carrying an `escalation` object) | **Policy RAG** (independently verify the advocates' `policy_cites` rather than trusting them), **Prevention-Rule Bucket Lookup** (read-only: is this category/subcategory/risk-signal combination in the always-escalate bucket?), **Escalate-to-L2** (files an early, explicit escalation signal) | Never receives raw feeds or the original complaint text directly — its inputs are the `CaseFile` object and the two `Argument`s only. Its tools are narrow and read-only; none of them hand it a general evidence-fetch or DB-query capability |
 
@@ -289,6 +312,19 @@ This does two things at once:
 2. **It's a second, ready-made view for free.** Logfire's own hosted trace explorer (free tier, no card required at hackathon scale) can be opened live during the demo as an "under the hood" screen — full prompts, completions, and tool calls per case, with zero additional UI work. That's a second, independently credible answer to "show me the inter-agent communication," on top of the product's own trace panel.
 
 Nothing in the request path depends on Logfire — spans are sent asynchronously and its unavailability never blocks a case from resolving (see the passive side-channel in §2). Exact current Logfire free-tier limits are worth a quick check closer to build time, but hackathon-scale traffic (dozens to low-hundreds of case runs) is comfortably within any published free tier.
+
+### 6.4 Computed in code, not by a model (v14)
+
+Live runs showed the model's arithmetic and fact-reading varying between runs on identical evidence. So every number a policy test depends on is computed deterministically and handed to the agents as citable evidence:
+
+| Ref | What code computes |
+|---|---|
+| `ROUTE-COMPARISON` | Planned vs driven distance and extra % from the two geometries, the Policy §2 tier, the refund formula's amount, and `matching_traffic_events` |
+| `TRAFFIC-NN` | Distance from the incident to the planned route, whether it overlapped the trip, and `matches_route`. That's our own 2 km test for "along the optimal route" |
+| `PICKUP-PROXIMITY` | The driver's closest GPS approach to the pickup against the 100 m arrival radius |
+| photo `analysis` | Image Analysis finding; the tier is mapped in code from the mess type |
+
+The Judge chooses the outcome and the remedy type. Code fills in any amount the policy fixes: a no-show waiver is the fee charged, and a route refund is the formula's figure. An upheld verdict that names no policy gets its category's section. The compliance check then holds the result to these numbers. For example, a cleaning fee above the tier the photos show is vetoed.
 
 ---
 
