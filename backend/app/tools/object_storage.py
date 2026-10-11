@@ -46,3 +46,8 @@ def presigned_url(object_key: str, expires_seconds: int = 600) -> str:
         Params={"Bucket": settings.object_storage_bucket, "Key": object_key},
         ExpiresIn=expires_seconds,
     )
+
+
+def get_object_bytes(object_key: str) -> bytes:
+    obj = _client().get_object(Bucket=settings.object_storage_bucket, Key=object_key)
+    return obj["Body"].read()

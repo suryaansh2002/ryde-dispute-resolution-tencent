@@ -8,10 +8,12 @@ import type {
   CaseState,
   Category,
   DecisionObject,
+  DamageFinding,
   TraceEvent,
   TriageResult,
 } from '../types/api'
 import { ArgumentCard } from './ArgumentCard'
+import { PhotoFinding } from './PhotoFinding'
 import { Ruling } from './Ruling'
 
 const seconds = (ms?: number | null) => (ms ? `${(ms / 1000).toFixed(1)} s` : null)
@@ -176,6 +178,29 @@ function renderEvent(e: TraceEvent, category: Category | null): ReactNode {
           </>
         )
       return <div className="tl-line">{e.agent} output</div>
+    case 'tool_call': {
+      const findings = ((e.output as { findings?: Record<string, DamageFinding> } | null)?.findings ?? {})
+      return (
+        <article className="card system">
+          <div className="card-head">
+            <span className="agent-label">Image analysis</span>
+            <span className="tiny faint">
+              vision tool{seconds(e.latency_ms) && ` · ${seconds(e.latency_ms)}`}
+            </span>
+          </div>
+          <div className="stack" style={{ gap: 10 }}>
+            {Object.entries(findings).map(([ref, f]) => (
+              <PhotoFinding key={ref} id={ref} finding={f} />
+            ))}
+            {Object.keys(findings).length === 0 && <p className="small muted">{e.detail}</p>}
+          </div>
+          <p className="tiny faint" style={{ marginTop: 8 }}>
+            The model says what it sees; the tier comes from the policy’s tier table, in code. Both advocates and the
+            Judge get this same finding.
+          </p>
+        </article>
+      )
+    }
     case 'escalation':
       return (
         <div className="banner tone-warn" style={{ margin: 0 }}>

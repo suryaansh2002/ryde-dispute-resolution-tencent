@@ -3,44 +3,83 @@
 Real/stock photos per severity tier would be the ideal source (data sources doc §2
 decision #3), but sourcing and licensing real images isn't something this pipeline can
 do unattended. Per the hackathon handbook's explicit allowance to mock/simulate data
-where real sources are unavailable, this uploads a small placeholder image per severity
-tier instead — clearly a stand-in, not a real photo, labeled as such in the object key
-and never presented as sourced. Swap `_PLACEHOLDER_PNG` for a real asset per tier
-whenever real/AI-generated photos are sourced, without touching any caller.
+where real sources are unavailable, each case gets a procedurally rendered photo of a
+rear seat showing its tier's mess (photo_render.py): a coffee spill, mud, or vomit.
+Synthetic, never presented as sourced, and labelled "synthetic" in the object key.
+Image Analysis grades these like any uploaded photo.
+
+`python -m data_generation.pipeline.photos` re-renders and re-uploads the photos of the
+existing golden cases (e.g. ones labelled when this module still uploaded a 1×1
+placeholder) and updates their prepared_evidence hashes.
 """
 
+import asyncio
 import hashlib
+import json
 
 import boto3
 
 from app.config import settings
-
-# A valid 1x1 transparent PNG — minimal placeholder bytes, not a real photo.
-_PLACEHOLDER_PNG = bytes.fromhex(
-    "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489"
-    "0000000a49444154789c6360000002000100ffff03000006000557bfabd4000000"
-    "0049454e44ae426082"
-)
+from data_generation.pipeline.photo_render import render_seat_photo
 
 SEVERITY_TIERS = ("minor", "moderate", "severe")
 
 
 def _client():
     return boto3.client(
-        "s3", endpoint_url=settings.aws_endpoint_url_s3,
+        "s3",
+        endpoint_url=settings.aws_endpoint_url_s3,
         aws_access_key_id=settings.aws_access_key_id,
         aws_secret_access_key=settings.aws_secret_access_key,
         region_name=settings.aws_region,
     )
 
 
+def _seed(key: str) -> int:
+    return int(hashlib.sha256(key.encode()).hexdigest()[:8], 16)
+
+
 def upload_placeholder_photo(case_id: str, severity: str) -> tuple[str, str]:
-    """Uploads the placeholder image for one Property Damage case and returns
-    (object_key, hash)."""
-    object_key = f"evidence/{case_id}/placeholder-{severity}.png"
+    """Renders and uploads the synthetic photo for one Property Damage case and returns
+    (object_key, hash). (Name kept for callers; it's no longer a placeholder.)"""
+    data = render_seat_photo(severity, _seed(case_id))
+    object_key = f"evidence/{case_id}/synthetic-{severity}.jpg"
     _client().put_object(
-        Bucket=settings.object_storage_bucket, Key=object_key, Body=_PLACEHOLDER_PNG,
-        ContentType="image/png",
+        Bucket=settings.object_storage_bucket, Key=object_key, Body=data,
+        ContentType="image/jpeg",
     )
-    digest = hashlib.sha256(_PLACEHOLDER_PNG).hexdigest()
-    return object_key, f"sha256:{digest}"
+    return object_key, f"sha256:{hashlib.sha256(data).hexdigest()}"
+
+
+async def refresh_golden_photos() -> None:
+    from app.data.db import close_pools, get_connection
+
+    conn = await get_connection()
+    try:
+        rows = await conn.fetch(
+            "SELECT id, trip_id, expected_outcome, prepared_evidence FROM golden_cases"
+        )
+        for row in rows:
+            evidence = row["prepared_evidence"]
+            evidence = json.loads(evidence) if isinstance(evidence, str) else evidence
+            if not evidence:
+                continue
+            expected = row["expected_outcome"]
+            expected = json.loads(expected) if isinstance(expected, str) else expected
+            amount = (expected.get("remedy") or {}).get("amount")
+            severity = {40.0: "minor", 120.0: "moderate", 200.0: "severe"}.get(amount)
+            if severity is None:
+                continue
+            key, hash_ = upload_placeholder_photo(str(row["trip_id"]), severity)
+            await conn.execute(
+                "UPDATE golden_cases SET prepared_evidence = $2 WHERE id = $1",
+                row["id"], json.dumps([{"kind": "photo", "hash": hash_, "object_key": key}]),
+            )
+            print(f"{row['id']}: {severity} -> {key}")
+    finally:
+        await conn.close()
+        await close_pools()
+
+
+if __name__ == "__main__":
+    asyncio.run(refresh_golden_photos())

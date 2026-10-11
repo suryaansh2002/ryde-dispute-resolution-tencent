@@ -9,6 +9,7 @@ dependencies = [
     "fastapi>=0.141.1",
     "httpx>=0.28.1",
     "logfire>=5.1.1",
+    "pillow>=12.3.0",
     "psycopg[binary]>=3.3.6",
     "pydantic-ai-slim[groq]>=2.51.0",
     "pydantic-settings>=2.15.0",
@@ -36,3 +37,6 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "DTZ"]
+
+[tool.logfire]
+ignore_no_config = true

@@ -14,6 +14,7 @@ commits its own state as it completes, so a mid-pipeline failure leaves the case
 visibly stuck at its last real state rather than silently rolled back.
 """
 
+import time
 from dataclasses import dataclass
 
 from app.agents.evidence_collection.agent import run_evidence_collection
@@ -37,6 +38,7 @@ from app.orchestrator.state_machine import CaseStateMachine
 from app.rules.prevention import PreventionAction, PreventionContext, run_prevention_rules
 from app.schemas import CaseFile, CaseRole, CaseState, DisputeCategory, TriageResult
 from app.schemas.trace import AgentName, TraceEventKind
+from app.tools.image_analysis import analyze_case_photos
 
 
 class ClaimRejected(Exception):
@@ -168,6 +170,8 @@ async def process_claim(opened: OpenedClaim) -> FileClaimResult:
             conn, case_id, TraceEventKind.AGENT_OUTPUT, agent=AgentName.EVIDENCE_COLLECTION,
             output=case_file.model_dump(mode="json"),
         )
+        if case_file.photos:
+            case_file = await _analyze_photos(conn, case_id, case_file)
 
         if triage_result.category == DisputeCategory.PROPERTY_DAMAGE and not case_file.photos:
             await sm.transition(CaseState.DECLINED_INSUFFICIENT_EVIDENCE)
@@ -202,3 +206,24 @@ async def file_claim(
 ) -> FileClaimResult:
     opened = await open_claim(trip_id, complainer_id, category, claim_text, evidence)
     return await process_claim(opened)
+
+
+async def _analyze_photos(conn, case_id: str, case_file: CaseFile) -> CaseFile:
+    """Image Analysis on every photo the Evidence Collection step verified; the findings
+    ride along in the CaseFile so both advocates, the Judge and the compliance check all
+    see the same thing. A failure leaves that photo unanalysed, never blocks the case."""
+    started = time.perf_counter()
+    case_file, errors = await analyze_case_photos(case_file)
+    findings = {p.evidence_id: p.analysis.model_dump() for p in case_file.photos if p.analysis}
+    await save_case_file(conn, case_id, case_file)
+    summary = ", ".join(
+        f"{ref}: {f['mess_type'].replace('_', ' ')} → {f['tier']}" for ref, f in findings.items()
+    )
+    await record_trace_event(
+        conn, case_id, TraceEventKind.TOOL_CALL, agent=AgentName.EVIDENCE_COLLECTION,
+        latency_ms=int((time.perf_counter() - started) * 1000),
+        detail=f"image analysis: {summary or 'no findings'}"
+        + (f"; failed: {'; '.join(errors)}" if errors else ""),
+        output={"tool": "image_analysis", "findings": findings},
+    )
+    return case_file
