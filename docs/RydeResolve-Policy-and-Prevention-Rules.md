@@ -1,5 +1,11 @@
 # RydeResolve — Dispute Resolution Policy & Prevention Rules (v3 — Part 1 reconciled against real Ryde figures)
 
+> **2026-10-11 additions, all labelled as our own rules:**
+> - §2: "along the optimal route" means within 2 km of the planned route, during the trip.
+> - §4: the photo, via Image Analysis, sets the fee tier.
+> - §4: the photo-only fee rule.
+> - The 2-hour photo window was dropped.
+
 **What this is:** the actual content behind two things the system design references but never spelled out — the `policy_chunks` corpus (§5 of the system design doc) that the Rider/Driver Advocates and Judge search via RAG (Part 1, below), and the deterministic "Prevention rules" box that now runs after the Triage Agent and before the Evidence Collection Agent in the finalized flow (Part 2, below).
 
 **Important caveat, stated plainly, per part:** **Part 1 (Policy)** has now been reconciled against the real-Ryde-source research (`RydeResolve-Real-Source-Reference.md`) — every dollar figure, time window, and fee schedule that Ryde actually publishes has been swapped in for the earlier draft's invented placeholders. What hasn't changed, because no real source exists to change it to: Route Deviation has no real Ryde tolerance-threshold or refund formula at all, and the No-Show GPS-arrival radius and Property Damage photo-submission window are also unsourced. Those remain our own design choices, and are labeled as such, inline, everywhere they appear — this document never lets a real figure and an invented one sit side by side looking equally authoritative. **Part 2 (Prevention Rules)** was already reconciled in the previous revision: three of its six rules are grounded in real, sourced Ryde material (linked per-rule below), and the other three remain honestly-labeled system-design choices, not Ryde facts. Nothing below is presented as more authoritative than it actually is.
@@ -81,7 +87,13 @@ The same **$4.50** figure applies to both the cancellation fee and the driver's 
 
 **Evidence required:** at least one photo showing the damage/mess. A photo is treated as insufficient evidence (claim declined, not denied — see §6) if it's a duplicate of a photo used in a prior claim, or automated image analysis flags it as inconsistent with a genuine, unedited photograph. *(There is no photo-submission deadline. An earlier draft required the photo within 2 hours of trip completion. That was an invented placeholder with no Ryde source, and it was dropped on 2026-10-11 so that a claim filed later, still inside the 30-day claim window, isn't declined automatically. Prevention Rule 6's claim window handles staleness.)*
 
-**Fee for a photo-only claim** *(not Ryde-sourced, our own rule)*: Ryde's real process sets an amount within the cap from photos and cleaning receipts. This system collects photos but not cleaning receipts. An upheld photo-only claim is therefore charged exactly the scheduled amount for the tier the evidence supports: $40 minor, $120 moderate, $200 severe. A missing receipt is not a reason to decline a claim that has a valid photo. Where a cleaning receipt does exist, it can only lower the fee to the receipt amount. Mirroring Ryde's real appeals process for Vehicle Damage Claims, a receipt must state the cleaning company's name, contact details, cleaning date, and an authorized signature.
+**Fee for a photo-only claim** *(not Ryde-sourced, our own rule)*: Ryde's real process sets an amount within the cap from photos and cleaning receipts. This system collects photos but not cleaning receipts. An upheld photo-only claim is therefore charged exactly the scheduled amount for the tier the evidence supports: $40 minor, $120 moderate, $200 severe. A missing receipt is not a reason to decline a claim that has a valid photo. Where a cleaning receipt does exist, it can only lower the fee to the receipt amount.
+
+**Which tier the photo supports** *(not Ryde-sourced, our own rule; the tier table itself is Ryde's)*:
+- Automated image analysis says what each photo shows: the kind of mess and how much it covers. The tier follows from the table above: food/drink spillage or crumbs is minor; mud, dirt, stains or bodily fluids other than vomit are moderate; vomit is severe.
+- The tier is set by what the photos show, not by what the claim says. A larger mess claimed than photographed doesn't raise the fee.
+- If the photos show no mess, no cleaning fee is supported.
+- If the analysis is unclear, or not confident, a human reviewer decides the tier. Mirroring Ryde's real appeals process for Vehicle Damage Claims, a receipt must state the cleaning company's name, contact details, cleaning date, and an authorized signature.
 
 **Burden of proof:** the party claiming damage bears the burden. A driver's claim with no photo, or a photo that fails the checks above, is declined for insufficient evidence — the default is not "unresolved in the rider's favor," it's "declined, refile with adequate evidence" (§6). Real-world non-payment consequence, for context (not itself part of this system's remedy set): Ryde places the paying party's account on hold until a cleaning fee is settled.
 
