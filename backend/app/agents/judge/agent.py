@@ -263,6 +263,11 @@ async def validate_judge_citations(ctx: RunContext[JudgeDeps], out: JudgeVerdict
             "evidence favours the rider, the driver's claim is denied: outcome claim_denied, "
             "remedy no_action"
         )
+    if out.outcome in _UPHELD and out.remedy.type == RemedyType.NO_ACTION:
+        problems.append(
+            f"outcome {out.outcome} needs a remedy. If the filer's claim fails on the evidence, "
+            "the outcome is claim_denied"
+        )
     if out.outcome not in _UPHELD and out.remedy.type != RemedyType.NO_ACTION:
         problems.append(
             f"outcome {out.outcome} must carry remedy no_action, not {out.remedy.type}: "

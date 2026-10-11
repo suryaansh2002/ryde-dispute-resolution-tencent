@@ -31,6 +31,7 @@ from app.data.cases import (
     update_case,
 )
 from app.data.db import get_connection
+from app.data.usage import current_case_id
 from app.orchestrator.decision_document import render_decision_document
 from app.orchestrator.state_machine import CaseStateMachine
 from app.rules.compliance import compliance_check
@@ -85,6 +86,7 @@ async def store_response(case_id: str, respondent_id: str, text: str) -> None:
 
 
 async def adjudicate(case_id: str) -> AdjudicationResult:
+    current_case_id.set(case_id)  # attributes every model call below to this case
     conn = await get_connection()
     try:
         case = await get_case_row(conn, case_id)

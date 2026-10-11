@@ -35,6 +35,7 @@ uv run python -m scripts.smoke_e2e --base-url http://localhost:8000
 ```
 
 Apply `migrations/0001_init.sql` against the Neon branch with `psql "$DATABASE_URL" -f migrations/0001_init.sql` (or via the `neon-postgres` skill/CLI) before running anything that touches the DB.
+Then apply `migrations/0002_llm_usage.sql` the same way. It adds `llm_usage`, one row per model call (every agent run and every Image Analysis call) with the case, agent, model, input/output tokens, requests, tool calls and latency. There's no cost column on purpose: cost is tokens × the provider's current price, so compute it at query time, e.g. `SELECT case_id, sum(input_tokens), sum(output_tokens) FROM llm_usage GROUP BY case_id`.
 
 ## Deploying (Render)
 

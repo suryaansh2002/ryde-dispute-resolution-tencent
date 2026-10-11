@@ -29,6 +29,7 @@ import logfire
 from pydantic import ValidationError
 
 from app.config import settings
+from app.data.usage import record_usage
 from app.schemas import CaseFile, DamageFinding, EvidencePhoto
 from app.tools.object_storage import get_object_bytes
 
@@ -124,7 +125,15 @@ async def _vision_call(image: bytes) -> dict:
                 await asyncio.sleep(min(2 ** attempt, 20) + random.random())
                 continue
             res.raise_for_status()
-            return json.loads(res.json()["choices"][0]["message"]["content"])
+            payload = res.json()
+            usage = payload.get("usage") or {}
+            await record_usage(
+                "image_analysis",
+                input_tokens=usage.get("prompt_tokens", 0),
+                output_tokens=usage.get("completion_tokens", 0),
+                latency_ms=int(res.elapsed.total_seconds() * 1000),
+            )
+            return json.loads(payload["choices"][0]["message"]["content"])
     raise AssertionError("unreachable")
 
 
