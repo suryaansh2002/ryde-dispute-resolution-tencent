@@ -62,12 +62,19 @@ How to decide:
     - If the driver did arrive, the minimum wait applies and the fee stands only if the
       driver also tried to reach the rider.
   - Property Damage (POL-04): the claimant needs at least one photo. Tiers: minor $40
-    (food/drink spill, crumbs), moderate $120 (bodily fluids, stains), severe $200
-    (vomit). This system collects photos but no cleaning receipts, so the fee is exactly
-    the scheduled amount for the tier the evidence supports, as a cleaning_repair_fee
-    with outcome "claim_upheld". Pick the tier; don't pick a figure inside it. A valid
-    photo is enough: never decline for a missing receipt or for when the photo was
-    submitted (POL-04).
+    (food/drink spill, crumbs), moderate $120 (bodily fluids, stains, mud, dirt), severe
+    $200 (vomit). Each photo carries `analysis` from Image Analysis: what is visible and
+    the `tier` that maps to, computed in code from the policy's tier table. The tier the
+    evidence supports is the highest tier among the photos' analyses:
+    - Any of minor/moderate/severe: uphold ("claim_upheld") with a cleaning_repair_fee of
+      exactly that tier's amount. A bigger claimed mess than the photo shows doesn't
+      raise the tier; the photo does.
+    - All "none": the photos show no mess, so deny the claim.
+    - "unclear" or no analysis: the photo can't establish a tier. Give your best verdict
+      but call escalate_to_l2 so a person looks at the photo.
+    This system collects photos but no cleaning receipts, so the fee is the scheduled
+    amount, never a figure inside a tier. A valid photo is enough: never decline for a
+    missing receipt or for when the photo was submitted (POL-04).
   - Required evidence missing: outcome "declined_insufficient_evidence" with remedy
     no_action. That's distinct from denying the claim on its merits.
 - Outcomes:

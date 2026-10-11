@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { DragEvent, FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { api } from '../lib/api'
+import { api, samplePhotoUrl } from '../lib/api'
 import { CATEGORY_LABEL, money, when } from '../lib/format'
 import type { Category, EvidenceRef, Role, Trip } from '../types/api'
 
@@ -50,7 +50,8 @@ const WE_CHECK: Record<Category, string[]> = {
     'The $4.50 fee as charged',
   ],
   property_damage: [
-    'Your photo: it must exist and is hashed so it can’t change afterwards',
+    'Your photo: hashed so it can’t change, then graded by Image Analysis (spill, mud, vomit…)',
+    'The fee tier follows what the photo shows, not what the report says',
     'Ryde’s fixed cleaning-fee tiers: $40, $120 or $200',
     'The chat log and both parties’ dispute history',
   ],
@@ -60,36 +61,20 @@ const WE_CHECK: Record<Category, string[]> = {
   ],
 }
 
-/** A stand-in "photo" for demos: a seat with a spill, drawn on a canvas. */
-async function samplePhoto(): Promise<File> {
-  const c = document.createElement('canvas')
-  c.width = 640
-  c.height = 420
-  const g = c.getContext('2d')!
-  g.fillStyle = '#3a3f47'
-  g.fillRect(0, 0, 640, 420)
-  g.fillStyle = '#4b515b'
-  g.beginPath()
-  g.roundRect(60, 70, 520, 280, 36)
-  g.fill()
-  g.strokeStyle = '#2d3138'
-  g.lineWidth = 4
-  for (const x of [230, 410]) {
-    g.beginPath()
-    g.moveTo(x, 80)
-    g.lineTo(x, 340)
-    g.stroke()
-  }
-  g.fillStyle = 'rgba(120, 72, 30, 0.85)'
-  g.beginPath()
-  g.ellipse(330, 220, 110, 52, -0.25, 0, Math.PI * 2)
-  g.ellipse(250, 250, 46, 24, 0.4, 0, Math.PI * 2)
-  g.fill()
-  g.fillStyle = '#e8ebf0'
-  g.font = '16px monospace'
-  g.fillText('sample evidence photo: rear seat', 20, 400)
-  const blob = await new Promise<Blob>((resolve) => c.toBlob((b) => resolve(b!), 'image/png'))
-  return new File([blob], 'rear-seat-spill.png', { type: 'image/png' })
+type SampleTier = 'none' | 'minor' | 'moderate' | 'severe'
+
+const SAMPLE_LABEL: Record<SampleTier, string> = {
+  minor: 'Coffee spill',
+  moderate: 'Mud',
+  severe: 'Vomit',
+  none: 'Clean seat',
+}
+
+/** A synthetic rear-seat photo from the backend, real enough for Image Analysis to grade. */
+async function samplePhoto(tier: SampleTier): Promise<File> {
+  const res = await fetch(samplePhotoUrl(tier, Math.floor(Math.random() * 1000)))
+  if (!res.ok) throw new Error(`sample photo: ${res.status}`)
+  return new File([await res.blob()], `rear-seat-${tier}.jpg`, { type: 'image/jpeg' })
 }
 
 export function FileClaim() {
@@ -122,7 +107,7 @@ export function FileClaim() {
   useEffect(() => {
     if (!demo) return
     setText(EXAMPLES[category][role])
-    if (category === 'property_damage') samplePhoto().then(setPhoto)
+    if (category === 'property_damage') samplePhoto('minor').then(setPhoto, () => setPhoto(null))
   }, [demo, category, role])
 
   useEffect(() => {
@@ -258,10 +243,22 @@ export function FileClaim() {
                     Remove photo
                   </button>
                 )}
-                {needsPhoto && !photo && (
-                  <button type="button" className="btn-ghost btn-sm" onClick={() => samplePhoto().then(setPhoto)}>
-                    Attach a sample photo (demo)
-                  </button>
+                {needsPhoto && (
+                  <>
+                    <span className="tiny faint">Demo sample photo:</span>
+                    <div className="segmented">
+                      {(Object.keys(SAMPLE_LABEL) as SampleTier[]).map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          className={`btn-sm ${photo?.name === `rear-seat-${t}.jpg` ? 'on' : ''}`}
+                          onClick={() => samplePhoto(t).then(setPhoto, (e: Error) => setError(e.message))}
+                        >
+                          {SAMPLE_LABEL[t]}
+                        </button>
+                      ))}
+                    </div>
+                  </>
                 )}
               </div>
               {needsPhoto && !photo && (

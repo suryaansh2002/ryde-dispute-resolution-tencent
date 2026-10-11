@@ -10,6 +10,8 @@ class TraceEventKind(StrEnum):
     AGENT_START = "agent_start"
     AGENT_COMPLETE = "agent_complete"
     AGENT_OUTPUT = "agent_output"
+    # A tool an agent carries ran outside the model loop (e.g. Image Analysis on photos).
+    TOOL_CALL = "tool_call"
     ESCALATION = "escalation"
     L2_REVIEW = "l2_review"
     # A pipeline step failed (e.g. a model call); the case stays at its last good state.

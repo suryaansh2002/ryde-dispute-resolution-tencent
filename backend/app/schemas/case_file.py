@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -26,11 +27,34 @@ class PaymentBreakdown(BaseModel):
     add_on_fees: list[dict] = []
 
 
+MessType = Literal[
+    "none", "drink_spill", "food_crumbs", "mud_dirt", "stain", "vomit",
+    "bodily_fluid_other", "other_damage",
+]
+DamageTier = Literal["none", "minor", "moderate", "severe", "unclear"]
+
+
+class DamageFinding(BaseModel):
+    """Image Analysis output for one photo (system design §6). The vision model reports
+    what it sees (`mess_type`, `extent`, `description`); `tier` is mapped from that in
+    code (app/tools/image_analysis.py), following the Policy doc's §4 tier table. The
+    model never picks the fee tier itself."""
+
+    shows_vehicle_interior: bool
+    mess_type: MessType
+    extent: Literal["small", "medium", "large"]
+    description: str
+    confidence: float
+    tier: DamageTier
+
+
 class EvidencePhoto(BaseModel):
     evidence_id: str
     r2_object_key: str  # name kept for schema stability; backed by Neon Object Storage now
     hash: str
     submitted_at: datetime
+    # Attached after assembly by the Image Analysis tool; None if it hasn't run or failed.
+    analysis: DamageFinding | None = None
 
 
 class BehaviorProfile(BaseModel):

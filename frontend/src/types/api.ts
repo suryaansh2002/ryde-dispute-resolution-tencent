@@ -100,6 +100,7 @@ export type TraceKind =
   | 'agent_start'
   | 'agent_complete'
   | 'agent_output'
+  | 'tool_call'
   | 'escalation'
   | 'l2_review'
   | 'error'
@@ -270,4 +271,15 @@ export interface DemoScenario {
   other_party_name: string
   role: Role
   category: Category
+}
+
+export type DamageTier = 'none' | 'minor' | 'moderate' | 'severe' | 'unclear'
+
+export interface DamageFinding {
+  shows_vehicle_interior: boolean
+  mess_type: string
+  extent: 'small' | 'medium' | 'large'
+  description: string
+  confidence: number
+  tier: DamageTier
 }

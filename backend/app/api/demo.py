@@ -1,11 +1,12 @@
 """Navigation endpoints for the demo UI: pick a persona, see their trips, see their
 cases. There's no real auth, just a persona picker (system design §3)."""
 
+import asyncio
 import json
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Response, status
 
 from app.data.db import get_connection
 from app.data.demo import (
@@ -108,3 +109,17 @@ async def policy_text(policy_id: str) -> list[dict]:
     if not clauses:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"no policy {policy_id!r}")
     return [c.model_dump() for c in clauses]
+
+
+@router.get("/demo/sample-photo")
+async def sample_photo(
+    tier: str = Query("minor", pattern="^(none|minor|moderate|severe)$"),
+    seed: int = Query(0, ge=0, le=10_000),
+) -> Response:
+    """A synthetic rear-seat photo for demos: clean, a coffee spill, mud, or vomit. Lets
+    the claim form attach a photo whose contents Image Analysis can actually grade, and
+    show what happens when the photo doesn't match the claim."""
+    from data_generation.pipeline.photo_render import render_seat_photo
+
+    data = await asyncio.to_thread(render_seat_photo, tier, seed)
+    return Response(data, media_type="image/jpeg", headers={"Cache-Control": "max-age=3600"})
