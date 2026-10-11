@@ -36,6 +36,7 @@ from data_generation.pipeline.geo import (
 )
 from data_generation.pipeline.golden_cases import label_golden_cases
 from data_generation.pipeline.onemap import get_route
+from data_generation.pipeline.photos import SEVERITY_TIERS
 from data_generation.pipeline.traffic_events import maybe_generate_traffic_event
 from data_generation.pipeline.users import generate_behavior_profile, generate_user
 
@@ -101,6 +102,12 @@ async def generate_dataset(
                 rng.choice(ROUTE_DEVIATION_EXTRA_FRACTIONS) if is_route_deviation else 0.0
             )
             actual = perturb_route(optimal, extra_fraction, rng) if is_route_deviation else optimal
+            # perturb_route's displacement is approximate (asking for 35% can yield ~19%), so
+            # golden labels use the *measured* extra distance — the same number the agents
+            # see in ROUTE-COMPARISON — not the requested one.
+            measured_extra = (
+                route_length_km(actual) / distance_km - 1 if is_route_deviation else 0.0
+            )
 
             traffic_event = maybe_generate_traffic_event(
                 pickup, scheduled_at, completed_at, rng, justified=justified
@@ -147,13 +154,17 @@ async def generate_dataset(
                     traffic_event["type"], traffic_event["description"],
                 )
 
-            complainer_role = (
-                rng.choice(["rider", "driver"]) if hint != CategoryHint.CLEAN else None
-            )
+            # Who plausibly files each category: riders dispute routes, drivers claim damage;
+            # either side can raise a no-show or a safety incident.
+            complainer_role = {
+                CategoryHint.ROUTE_DEVIATION: "rider",
+                CategoryHint.PROPERTY_DAMAGE: "driver",
+            }.get(hint) or rng.choice(["rider", "driver"])  # unused for CLEAN trips
+            severity = rng.choice(SEVERITY_TIERS)
             if hint != CategoryHint.CLEAN:
                 chat_lines, claim_text = generate_chat_and_claim(
                     _dispute_category(hint), complainer_role, rng,
-                    traffic_event_exists=traffic_event is not None,
+                    traffic_event_exists=traffic_event is not None, severity=severity,
                 )
                 for line in chat_lines:
                     await conn.execute(
@@ -166,7 +177,7 @@ async def generate_dataset(
                 golden_candidates.append({
                     "trip_id": trip_id, "hint": hint, "complainer_id": complainer_id,
                     "complainer_role": complainer_role, "claim_text": claim_text,
-                    "extra_fraction": extra_fraction, "justified": justified,
+                    "extra_fraction": measured_extra, "justified": justified, "severity": severity,
                     "pickup": pickup, "gps_trace": gps_trace,
                 })
 

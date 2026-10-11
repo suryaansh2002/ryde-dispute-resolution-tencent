@@ -15,8 +15,8 @@ from datetime import UTC, datetime
 from app.schemas.common import CaseState
 from app.schemas.trace import TraceEvent, TraceEventKind
 
-# Front half (Dev A, Day 2): opened -> triage -> assembling, plus Prevention Rules'
-# hard-stop branches out of triage. Back half (Dev B, Day 5): assembling onward.
+# Front half: opened -> triage -> assembling -> awaiting_response, plus Prevention Rules'
+# hard-stop branches. Back half: awaiting_response -> adjudicating -> decided | escalated.
 TRANSITIONS: dict[CaseState, set[CaseState]] = {
     CaseState.OPENED: {CaseState.TRIAGE},
     CaseState.TRIAGE: {
@@ -33,7 +33,11 @@ TRANSITIONS: dict[CaseState, set[CaseState]] = {
         CaseState.DECLINED_INSUFFICIENT_EVIDENCE,
     },
     CaseState.AWAITING_RESPONSE: {CaseState.ADJUDICATING},
-    CaseState.ADJUDICATING: {CaseState.DECIDED},
+    # Escalation gate / compliance veto / Judge request -> ESCALATED (L2 queue);
+    # everything else finalizes straight to DECIDED.
+    CaseState.ADJUDICATING: {CaseState.DECIDED, CaseState.ESCALATED},
+    # L2 ratification (or override) finalizes an escalated case.
+    CaseState.ESCALATED: {CaseState.DECIDED},
     CaseState.DECIDED: set(),
     CaseState.SAFETY_BYPASSED: set(),
     CaseState.DECLINED_INSUFFICIENT_EVIDENCE: set(),

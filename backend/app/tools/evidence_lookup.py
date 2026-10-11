@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from math import asin, cos, radians, sin, sqrt
 from typing import Any
 
+from app.rules.policy_math import route_refund, route_tier
 from app.schemas import CaseFile
 
 PAYMENT = "PAYMENT"
@@ -20,6 +21,10 @@ ROUTE_ACTUAL = "ROUTE-ACTUAL"
 ROUTE_COMPARISON = "ROUTE-COMPARISON"
 PROFILE_COMPLAINER = "PROFILE-COMPLAINER"
 PROFILE_COMPLAINEE = "PROFILE-COMPLAINEE"
+PICKUP_PROXIMITY = "PICKUP-PROXIMITY"
+
+# Not Ryde-sourced: our own proximity test for "the driver arrived" (Policy doc §3).
+PICKUP_ARRIVAL_RADIUS_M = 100
 
 _EARTH_RADIUS_KM = 6371.0088
 
@@ -63,6 +68,20 @@ def evidence_index(case_file: CaseFile) -> dict[str, EvidenceItem]:
     index[PROFILE_COMPLAINEE] = EvidenceItem(
         "behavior_profile", case_file.complainee_profile.model_dump(mode="json"))
 
+    if case_file.gps_trace:
+        pickup = [case_file.pickup_lng, case_file.pickup_lat]
+        nearest = min(
+            case_file.gps_trace, key=lambda p: _haversine_km([p.lng, p.lat], pickup)
+        )
+        min_m = _haversine_km([nearest.lng, nearest.lat], pickup) * 1000
+        index[PICKUP_PROXIMITY] = EvidenceItem("pickup_proximity", {
+            "pickup": {"lat": case_file.pickup_lat, "lng": case_file.pickup_lng},
+            "closest_approach_m": round(min_m, 1),
+            "closest_approach_at": nearest.t.isoformat(),
+            "arrival_radius_m": PICKUP_ARRIVAL_RADIUS_M,
+            "reached_pickup": min_m <= PICKUP_ARRIVAL_RADIUS_M,
+        })
+
     optimal_km = route_length_km(case_file.optimal_route_geometry)
     actual_km = route_length_km(case_file.actual_route_geometry)
     if optimal_km is not None:
@@ -72,10 +91,16 @@ def evidence_index(case_file: CaseFile) -> dict[str, EvidenceItem]:
         index[ROUTE_ACTUAL] = EvidenceItem("route", {
             "geometry": case_file.actual_route_geometry, "length_km": round(actual_km, 3)})
     if optimal_km and actual_km is not None:
+        extra_km = actual_km - optimal_km
+        extra_pct = (actual_km / optimal_km - 1) * 100
         index[ROUTE_COMPARISON] = EvidenceItem("route_comparison", {
             "optimal_km": round(optimal_km, 3),
             "actual_km": round(actual_km, 3),
-            "extra_km": round(actual_km - optimal_km, 3),
-            "extra_pct": round((actual_km / optimal_km - 1) * 100, 2),
+            "extra_km": round(extra_km, 3),
+            "extra_pct": round(extra_pct, 2),
+            "policy_tier": route_tier(extra_pct),
+            "refund_if_unjustified": route_refund(
+                case_file.payment.base_fare, extra_km, actual_km, extra_pct
+            ),
         })
     return index

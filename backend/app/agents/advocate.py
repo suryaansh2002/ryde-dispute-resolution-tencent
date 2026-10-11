@@ -71,9 +71,32 @@ Rules:
   it — the Judge sees the same evidence and discounts overreach.
 - `confidence` (0.0-1.0): your honest estimate that the evidence supports the {role}'s
   position under policy.
+- "Party statements", if present, are what each side *says* happened. They are claims to
+  test against the evidence, not evidence themselves: they can't be cited in `cites`, and
+  an unsupported statement doesn't outweigh the record.
 - Refer to the parties as "the rider" and "the driver"; never assume anyone's gender.
 - `role` is always "{role}". `text` is one paragraph of at most 120 words.
 """
+
+
+@dataclass
+class PartyStatements:
+    """What each side says happened, in their own words — the complainer's claim and the
+    complainee's response. Given to the advocates only, never to the Judge (system design
+    §4 rule 2: the Judge never sees the original complaint text)."""
+
+    complainer_role: CaseRole
+    claim_text: str
+    response_text: str | None = None
+
+    def render(self) -> str:
+        other = CaseRole.DRIVER if self.complainer_role == CaseRole.RIDER else CaseRole.RIDER
+        response = self.response_text or "(no response submitted)"
+        return (
+            "Party statements (assertions to test against evidence, not citable):\n"
+            f"- The {self.complainer_role} (who filed) says: {self.claim_text}\n"
+            f"- The {other} (responding) says: {response}"
+        )
 
 
 def render_case_file(case_file: CaseFile) -> str:
@@ -149,8 +172,14 @@ def build_advocate_agent(role: CaseRole) -> Agent[AdvocateDeps, Argument]:
 
 
 async def run_advocate(
-    agent: Agent[AdvocateDeps, Argument], role: CaseRole, case_file: CaseFile
+    agent: Agent[AdvocateDeps, Argument],
+    role: CaseRole,
+    case_file: CaseFile,
+    statements: PartyStatements | None = None,
 ) -> AdvocateRun:
     deps = AdvocateDeps(case_file=case_file, role=role)
-    result = await agent.run(render_case_file(case_file), deps=deps)
+    prompt = render_case_file(case_file)
+    if statements is not None:
+        prompt = f"{prompt}\n\n{statements.render()}"
+    result = await agent.run(prompt, deps=deps)
     return AdvocateRun(result.output, deps.stripped_cites, deps.stripped_policy_cites)

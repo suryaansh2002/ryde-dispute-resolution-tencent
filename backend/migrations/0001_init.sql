@@ -86,6 +86,11 @@ CREATE TABLE cases (
     tier TEXT,
     state TEXT NOT NULL DEFAULT 'opened',
     is_safety BOOLEAN NOT NULL DEFAULT false,
+    -- the complainer's own words; given to the advocates, never to the Judge (§4 rule 2)
+    claim_text TEXT,
+    -- the canonical CaseFile the Evidence Collection Agent assembled, so adjudication
+    -- (triggered later by the response) runs on exactly what was assembled
+    case_file JSONB,
     response_deadline TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()

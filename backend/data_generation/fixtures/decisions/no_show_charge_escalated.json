@@ -12,8 +12,8 @@
       "cites": ["MSG-0004"]
     },
     {
-      "finding": "Pickup coordinates are not in the case file, so the 100m arrival test cannot be applied directly — confidence reduced accordingly.",
-      "cites": ["GPS-TRACE"]
+      "finding": "The driver's closest GPS approach to the pickup point was ~630m, well outside the 100m arrival radius — the arrival test fails.",
+      "cites": ["PICKUP-PROXIMITY"]
     },
     {
       "finding": "Complainer has 3 disputes filed in the trailing 30 days, which places this case in the always-escalate bucket regardless of confidence.",

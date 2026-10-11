@@ -53,6 +53,8 @@ def _property_damage_outcome(severity: str, has_evidence: bool) -> dict:
             "outcome": "declined_insufficient_evidence", "remedy": {"type": "no_action"},
             "policy_applied": "POL-04",
         }
+    # Photo-only claims are charged the tier's scheduled amount (our own rule,
+    # app/rules/policy_math.py), so the label is exact.
     return {
         "outcome": "claim_upheld",
         "remedy": {"type": "cleaning_repair_fee", "amount": PROPERTY_DAMAGE_FEES[severity]},
@@ -84,7 +86,7 @@ async def label_golden_cases(conn, candidates: list[dict], rng: random.Random) -
             reached = _min_distance_to_pickup_m(c["gps_trace"], c["pickup"]) <= 100
             expected = _no_show_outcome(c["complainer_role"], reached)
         elif hint == CategoryHint.PROPERTY_DAMAGE:
-            severity = rng.choice(SEVERITY_TIERS)
+            severity = c.get("severity") or rng.choice(SEVERITY_TIERS)
             has_evidence = rng.random() > 0.2  # ~20% deliberately insufficient (step 10 note)
             if has_evidence:
                 object_key, hash_ = upload_placeholder_photo(str(c["trip_id"]), severity)
