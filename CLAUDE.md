@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-This is a monorepo. `backend/` has a real `uv`-managed Python project now (FastAPI skeleton, locked `app/schemas/`, `app/rules/prevention.py` with unit tests, `migrations/0001_init.sql`, per-owner API routers in `app/api/` — `cases.py`/`evidence.py` are Dev A's, `decisions.py`/`l2.py`/`events.py` are Dev B's — and an `app/orchestrator/state_machine.py` skeleton) — see `backend/README.md` for run commands. `frontend/` is still an empty scaffold. This covers the Day 1 joint schema lock plus the Day-2 items from both devs' rows (roadmap v3 §2) — see "Team split" below for the actual two-developer split and what's next for each side.
+This is a monorepo. **The backend runs the full pipeline end to end:** `POST /cases` (intake → Triage → Prevention Rules → Evidence Collection → `awaiting_response`), then `POST /cases/{id}/response` (or `/adjudicate` when there's no response) runs both Advocates → Judge → escalation gate (`app/rules/escalation.py`) → compliance check (`app/rules/compliance.py`) → `decided` or `escalated`. `GET /cases/{id}/decision` returns the decision plus a rendered decision document. Still 501: `/events/*` (SSE), `/l2/*`, `/golden-run`. `frontend/` is still an empty scaffold. **Current sequencing lives in `docs/RydeResolve-Execution-Plan.md`**; the Dev A / Dev B split below is suspended. `backend/scripts/smoke_e2e.py` seeds three scenarios and drives them through the live API (real Postgres + Groq). Run it after any pipeline change.
 
 Backend commands (run from `backend/`): `uv sync`, `uv run pytest`, `uv run ruff check .`, `uv run uvicorn app.main:app --reload`.
 

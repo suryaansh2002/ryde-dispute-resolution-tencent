@@ -9,6 +9,7 @@ from typing import Any
 
 import asyncpg
 
+from app.schemas import CaseFile, DecisionObject
 from app.schemas.common import CaseRole, DisputeCategory
 from app.schemas.trace import AgentName, TraceEvent, TraceEventKind
 
@@ -56,13 +57,77 @@ async def create_case(
     complainer_id: str,
     complainee_id: str,
     category: DisputeCategory,
+    claim_text: str | None = None,
 ) -> str:
     case_id = await conn.fetchval(
-        """INSERT INTO cases (trip_id, complainer_id, complainee_id, category, state)
-           VALUES ($1, $2, $3, $4, 'opened') RETURNING id""",
-        trip_id, complainer_id, complainee_id, category.value,
+        """INSERT INTO cases (trip_id, complainer_id, complainee_id, category, state, claim_text)
+           VALUES ($1, $2, $3, $4, 'opened', $5) RETURNING id""",
+        trip_id, complainer_id, complainee_id, category.value, claim_text,
     )
     return case_id
+
+
+async def save_case_file(conn: asyncpg.Connection, case_id: str, case_file: CaseFile) -> None:
+    await conn.execute(
+        "UPDATE cases SET case_file = $2::jsonb, updated_at = now() WHERE id = $1",
+        case_id, case_file.model_dump_json(),
+    )
+
+
+def load_case_file(case_row: dict[str, Any]) -> CaseFile | None:
+    raw = case_row.get("case_file")
+    if raw is None:
+        return None
+    if isinstance(raw, str):
+        return CaseFile.model_validate_json(raw)
+    return CaseFile.model_validate(raw)
+
+
+async def insert_response(
+    conn: asyncpg.Connection, case_id: str, respondent_id: str, text: str
+) -> str:
+    return str(await conn.fetchval(
+        """INSERT INTO responses (case_id, respondent_id, text)
+           VALUES ($1, $2, $3) RETURNING id""",
+        case_id, respondent_id, text,
+    ))
+
+
+async def get_latest_response(conn: asyncpg.Connection, case_id: str) -> dict[str, Any] | None:
+    row = await conn.fetchrow(
+        "SELECT * FROM responses WHERE case_id = $1 ORDER BY submitted_at DESC LIMIT 1", case_id
+    )
+    return dict(row) if row else None
+
+
+async def insert_decision(conn: asyncpg.Connection, decision: DecisionObject) -> None:
+    await conn.execute(
+        """INSERT INTO decisions (case_id, outcome, remedy, reasoning, policy_applied,
+               confidence, escalation, human_ratified, ratified_by)
+           VALUES ($1, $2, $3::jsonb, $4::jsonb, $5, $6, $7::jsonb, $8, $9)""",
+        decision.case_id, decision.outcome, decision.remedy.model_dump_json(),
+        json.dumps([f.model_dump(mode="json") for f in decision.reasoning]),
+        decision.policy_applied, decision.confidence, decision.escalation.model_dump_json(),
+        decision.human_ratified, decision.ratified_by,
+    )
+
+
+async def get_latest_decision(conn: asyncpg.Connection, case_id: str) -> DecisionObject | None:
+    row = await conn.fetchrow(
+        "SELECT * FROM decisions WHERE case_id = $1 ORDER BY created_at DESC LIMIT 1", case_id
+    )
+    if row is None:
+        return None
+
+    def _j(v):
+        return json.loads(v) if isinstance(v, str) else v
+
+    return DecisionObject(
+        case_id=row["case_id"], outcome=row["outcome"], remedy=_j(row["remedy"]),
+        reasoning=_j(row["reasoning"]), policy_applied=row["policy_applied"],
+        confidence=float(row["confidence"]), escalation=_j(row["escalation"]),
+        human_ratified=row["human_ratified"], ratified_by=row["ratified_by"],
+    )
 
 
 async def get_case_row(conn: asyncpg.Connection, case_id: str) -> dict[str, Any] | None:
@@ -122,3 +187,10 @@ async def record_trace_event(
         json.dumps(output) if output is not None else None,
     )
     return event.model_copy(update={"id": row_id})
+
+
+def trace_emitter(conn: asyncpg.Connection):
+    """State-machine emit hook that writes each transition to `trace_events`."""
+    async def emit(event: TraceEvent) -> None:
+        await record_trace_event(conn, event.case_id, event.kind, detail=event.detail)
+    return emit

@@ -131,9 +131,9 @@
           ]
         },
         {
-          "finding": "Pickup coordinates are not in the case file, so the 100m arrival test cannot be applied directly — confidence reduced accordingly.",
+          "finding": "The driver's closest GPS approach to the pickup point was ~630m, well outside the 100m arrival radius — the arrival test fails.",
           "cites": [
-            "GPS-TRACE"
+            "PICKUP-PROXIMITY"
           ]
         },
         {
