@@ -142,3 +142,20 @@ async def test_policy_cited_by_an_advocate_is_valid_without_re_searching():
         run = await run_judge(load_case("route_deviation"), rider, DRIVER)
     assert run.verdict.policy_applied == "POL-08"
     assert not run.flagged
+
+
+def upheld_without_policy(policy):
+    return lambda info: ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, {
+        "outcome": "claim_upheld",
+        "remedy": {"type": "no_show_fee_waiver", "amount": 4.5},
+        "reasoning": [{"finding": "driver never arrived", "cites": ["PICKUP-PROXIMITY"]}],
+        "policy_applied": policy, "confidence": 0.9,
+    })])
+
+
+async def test_upheld_claim_without_a_policy_gets_a_correction():
+    run = await run_with(
+        scripted(upheld_without_policy(None), upheld_without_policy("POL-03")),
+        case="no_show_charge",
+    )
+    assert run.verdict.policy_applied == "POL-03"

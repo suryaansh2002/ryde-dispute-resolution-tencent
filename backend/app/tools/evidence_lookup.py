@@ -1,8 +1,8 @@
 """Evidence Lookup (system design §6): read-only access to one `CaseFile`'s
 already-assembled data — never raw DB access.
 
-Every citable item gets a stable ref ID. Items that carry their own ID keep it (chat
-`MSG-*`, photo `EV-*`, traffic events with an `id`); everything else gets a fixed ref.
+Every citable item gets a stable ref ID. Chat messages and photos keep their own
+IDs (`MSG-*`, `EV-*`); everything else gets a fixed ref (traffic events: `TRAFFIC-01`...).
 `ROUTE-COMPARISON` is derived from the two route geometries so no agent estimates
 distances itself. This index is also what the citation validators check `cites` against.
 """
@@ -56,8 +56,10 @@ def evidence_index(case_file: CaseFile) -> dict[str, EvidenceItem]:
         index[msg.id] = EvidenceItem("chat_message", msg.model_dump(mode="json"))
     for photo in case_file.photos:
         index[photo.evidence_id] = EvidenceItem("photo", photo.model_dump(mode="json"))
+    # Traffic events are cited as TRAFFIC-01, TRAFFIC-02... in case-file order, like every
+    # other non-message ref, not by their database UUID, which is unreadable in a citation.
     for i, event in enumerate(case_file.traffic_events, start=1):
-        index[str(event.get("id") or f"TRAFFIC-{i:02d}")] = EvidenceItem("traffic_event", event)
+        index[f"TRAFFIC-{i:02d}"] = EvidenceItem("traffic_event", event)
 
     index[PAYMENT] = EvidenceItem("payment", case_file.payment.model_dump(mode="json"))
     if case_file.gps_trace:
