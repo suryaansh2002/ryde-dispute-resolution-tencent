@@ -136,8 +136,16 @@ CREATE TABLE trace_events (
 
 CREATE TABLE golden_cases (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    -- labeled against a trip, not a case: a golden case has no real `cases` row until
+    -- /golden-run actually files a claim for it (data sources §4 step 11) and compares
+    -- the result to expected_outcome; case_id is populated by that run, not at label time.
+    trip_id UUID NOT NULL REFERENCES trips(id),
     case_id TEXT REFERENCES cases(id),
     expected_outcome JSONB NOT NULL,
+    -- {kind, hash, object_key} evidence already uploaded to Object Storage at label
+    -- time (Property Damage only) — pass straight through to POST /cases' `evidence`
+    -- field when a golden run actually files this claim.
+    prepared_evidence JSONB NOT NULL DEFAULT '[]',
     last_run_result JSONB,
     last_run_at TIMESTAMPTZ
 );
