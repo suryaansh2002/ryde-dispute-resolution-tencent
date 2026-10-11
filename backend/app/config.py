@@ -30,5 +30,12 @@ class Settings(BaseSettings):
 
     agent_model: str = "groq:qwen/qwen3.8-27b"
 
+    onemap_access_token: str = ""
+    # Optional: if set, the OneMap client self-refreshes an expired token via OneMap's
+    # auth endpoint instead of relying on the static token above, which expires every
+    # ~3 days (data sources doc §5) — a manually pasted token WILL go stale mid-build.
+    onemap_email: str = ""
+    onemap_password: str = ""
+
 
 settings = Settings()
