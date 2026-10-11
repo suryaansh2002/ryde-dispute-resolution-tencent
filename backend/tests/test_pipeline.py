@@ -143,3 +143,31 @@ async def test_velocity_flag_is_non_blocking(monkeypatch):
     )
     assert result.state == CaseState.AWAITING_RESPONSE
     assert result.velocity_flagged is True
+
+
+async def test_photos_are_analysed_after_assembly(monkeypatch):
+    from app.schemas import DamageFinding, EvidencePhoto
+
+    photo = EvidencePhoto(
+        evidence_id="EV-0001", r2_object_key="k", hash="sha256:x", submitted_at=datetime.now(UTC)
+    )
+    _set_triage(monkeypatch, DisputeCategory.PROPERTY_DAMAGE)
+    monkeypatch.setattr(pipeline, "has_evidence", _async(True))
+    monkeypatch.setattr(
+        pipeline, "run_evidence_collection",
+        _async(minimal_case_file(category=DisputeCategory.PROPERTY_DAMAGE, photos=[photo])),
+    )
+    analysed_photo = photo.model_copy(update={"analysis": DamageFinding(
+        shows_vehicle_interior=True, mess_type="vomit", extent="large", description="d",
+        confidence=0.9, tier="severe",
+    )})
+
+    async def fake_analyze(case_file):
+        return case_file.model_copy(update={"photos": [analysed_photo]}), []
+
+    monkeypatch.setattr(pipeline, "analyze_case_photos", fake_analyze)
+    result = await pipeline.file_claim(
+        "TRIP-0001", "USER-RIDER", DisputeCategory.PROPERTY_DAMAGE, "vomit on the seat"
+    )
+    assert result.state == CaseState.AWAITING_RESPONSE
+    assert result.case_file.photos[0].analysis.tier == "severe"

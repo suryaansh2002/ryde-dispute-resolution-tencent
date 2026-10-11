@@ -111,3 +111,6 @@ export const streamUrl = {
 }
 
 export const evidenceContentUrl = (evidenceId: string) => `${API_URL}/evidence/${evidenceId}/content`
+
+export const samplePhotoUrl = (tier: 'none' | 'minor' | 'moderate' | 'severe', seed = 0) =>
+  `${API_URL}/demo/sample-photo?tier=${tier}&seed=${seed}`

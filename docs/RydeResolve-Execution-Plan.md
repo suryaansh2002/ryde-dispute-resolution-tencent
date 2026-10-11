@@ -83,7 +83,7 @@ Logfire spans every agent run (configured at server startup). SSE: `/events/case
 ### Step 5 — Proof that it works (~0.5 day, can be cut)
 - Golden-run: file each labelled case for real and compute a pass rate for the dashboard.
 - Tune prompts on the cases that fail.
-- Image Analysis tool for Property Damage photos.
+- ✅ Image Analysis tool for Property Damage photos (2026-10-11). The vision call runs on `qwen/qwen3.8-27b`, which accepts images on Groq. The model reports the kind of mess; code maps it to the Policy §4 tier. Compliance vetoes a fee above the tier the photos show. Seeded and demo photos are synthetic renders per tier (`data_generation/pipeline/photo_render.py`, `GET /demo/sample-photo`); vision grades 15 of 16 correctly, and the miss comes back low-confidence, which means "unclear", so a person decides.
 
 ### Step 6 — Submission (runs alongside steps 1–5)
 - **Public repo:** `.env` with live keys is in git history. Rotate every key (Groq, Neon, object storage, Logfire), then publish clean history, e.g. a fresh public repo with one squashed commit. The current repo must not be made public as-is.
@@ -99,6 +99,8 @@ Logfire spans every agent run (configured at server startup). SSE: `/events/case
 | Evidence shown to the person complained about after L2 review | Outcome only | Roadmap Day 9 default |
 | Dollar amounts | Computed in code (`app/rules/policy_math.py`), never by the Judge. The Judge picks the rule (justified or not, which damage tier); compliance vetoes any amount that doesn't match. | Added after live runs: the model's own refund arithmetic varied between runs on identical evidence |
 | Property Damage fee with a photo but no receipt | Exactly the tier's scheduled amount ($40 / $120 / $200) | Our own rule, not Ryde-sourced: the system collects photos, not cleaning receipts |
+| Where Image Analysis runs | Once per photo, right after Evidence Collection assembles the case file; the finding is attached to the photo. Advocates read it with their `image_analysis` tool. | Deviation from System Design §6, where the advocates call vision themselves. This keeps object storage behind Evidence Collection, gives both advocates the identical finding, and lets the Judge and compliance see it |
+| Photo → fee tier | The model names the mess (spill, mud, vomit…); code maps it to Ryde's tier table. A low-confidence finding (< 0.5), or a photo that isn't a vehicle interior, supports no tier, and the case goes to a person via the Judge | Tier table is Ryde-sourced; the mapping code and the 0.5 threshold are our own |
 | Cut order if time runs out | Image Analysis → golden-run dashboard → L2 console polish → real OneMap routes | — |
 
 ## 5. Needs a person, not code

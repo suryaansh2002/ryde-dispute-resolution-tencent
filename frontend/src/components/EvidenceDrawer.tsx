@@ -3,6 +3,7 @@ import { api, evidenceContentUrl } from '../lib/api'
 import { refKind, useEvidence } from '../lib/evidence'
 import { money, when } from '../lib/format'
 import type { EvidenceIndex, PolicyTag } from '../types/api'
+import { PhotoFinding } from './PhotoFinding'
 import { RouteMap } from './RouteMap'
 
 const KIND_TITLE: Record<string, string> = {
@@ -179,6 +180,14 @@ export function EvidenceDrawer({ refId, onClose }: { refId: string; onClose: () 
             style={{ maxWidth: '100%', maxHeight: 360, imageRendering: 'auto' }}
           />
         </div>
+        {item.data.analysis ? (
+          <div className="card system stack" style={{ gap: 6 }}>
+            <span className="agent-label">Image analysis</span>
+            <PhotoFinding finding={item.data.analysis} />
+          </div>
+        ) : (
+          <p className="tiny faint">Not analysed.</p>
+        )}
         <dl className="kv">
           <dt>Submitted</dt>
           <dd>{when(item.data.submitted_at)}</dd>
@@ -186,8 +195,8 @@ export function EvidenceDrawer({ refId, onClose }: { refId: string; onClose: () 
           <dd className="mono" style={{ wordBreak: 'break-all' }}>{item.data.hash}</dd>
         </dl>
         <p className="tiny faint">
-          Verified to exist in object storage before the case file was assembled. Demo data uses placeholder
-          images.
+          Verified to exist in object storage before the case file was assembled. Demo photos are synthetic
+          renders, not real photos.
         </p>
       </div>
     )

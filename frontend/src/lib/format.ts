@@ -120,3 +120,11 @@ export function whyLabels(item: { is_safety: boolean; escalation: Escalation | n
 
 export const toneClass = (tone: Tone) =>
   tone === 'progress' ? 'tone-live' : tone === 'neutral' ? '' : `tone-${tone}`
+
+export const TIER_FEE: Record<string, number> = { minor: 40, moderate: 120, severe: 200 }
+
+export function tierLabel(tier: string): string {
+  if (tier in TIER_FEE) return `${tier[0].toUpperCase()}${tier.slice(1)} tier · $${TIER_FEE[tier]}`
+  if (tier === 'none') return 'No mess visible'
+  return 'Unclear: a person decides'
+}

@@ -1,8 +1,9 @@
 """Shared builder for the Rider and Driver Advocate agents (system design §6).
 
 Both advocates are the same agent mirrored by role: identical `CaseFile` input,
-identical tools (Evidence Lookup, Policy RAG; Image Analysis lands Day 6-7 once the
-`DamageFinding` shape is frozen jointly), identical citation validator. Nothing
+identical tools (Evidence Lookup, Image Analysis, Policy RAG), identical citation
+validator. Image Analysis reads the finding already attached to each photo
+(app/tools/image_analysis.py), so both advocates see the same one. Nothing
 downstream branches on who filed — each argues its party's side either way.
 """
 
@@ -63,6 +64,8 @@ Rules:
   policy_rag in this run.
 - Use evidence_lookup for GPS traces, route geometry and ROUTE-COMPARISON. Route distances
   are computed for you — never estimate distances or percentages yourself.
+- For photos, call image_analysis with the photo's evidence ID. Its `tier` is computed
+  from the policy's tier table, not judged; argue from it, and cite the photo's ID.
 - State only what the case file or a tool result actually says, and describe each cited
   item accurately (e.g. read a behavior profile's numbers before characterizing it). If a
   policy test needs data the case file doesn't contain, say the test can't be applied —
@@ -127,6 +130,19 @@ def build_advocate_agent(role: CaseRole) -> Agent[AdvocateDeps, Argument]:
             return f"No evidence item {ref_id!r}. Valid refs: {', '.join(index)}"
         item = index[ref_id]
         return {"ref_id": ref_id, "kind": item.kind, "data": item.data}
+
+    @agent.tool
+    async def image_analysis(ctx: RunContext[AdvocateDeps], evidence_id: str) -> dict | str:
+        """What Image Analysis found in one photo (e.g. EV-0001): the kind of mess, how
+        much it covers, a description, and the policy tier that maps to (computed in code
+        from the Policy's tier table). Cite the photo's evidence ID, not this tool."""
+        photo = next((p for p in ctx.deps.case_file.photos if p.evidence_id == evidence_id), None)
+        if photo is None:
+            ids = [p.evidence_id for p in ctx.deps.case_file.photos]
+            return f"No photo {evidence_id!r} in this case file. Photos: {ids or 'none'}"
+        if photo.analysis is None:
+            return f"{evidence_id} has not been analysed; treat its contents as unknown."
+        return {"evidence_id": evidence_id, **photo.analysis.model_dump()}
 
     @agent.tool
     async def policy_rag(ctx: RunContext[AdvocateDeps], query: str) -> list[dict]:

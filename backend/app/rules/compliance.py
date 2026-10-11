@@ -5,9 +5,10 @@ outcome. It sends the case to L2 with the reason attached. The checks enforce th
 doc's remedy rules (Part 1 §2–§4, §7) on whatever the Judge produced.
 """
 
-from app.rules.policy_math import PHOTO_ONLY_FEES
+from app.rules.policy_math import PHOTO_ONLY_FEES, PROPERTY_DAMAGE_TIERS
 from app.schemas import CaseFile, DecisionOutcome, DisputeCategory, JudgeVerdict, RemedyType
 from app.tools.evidence_lookup import ROUTE_COMPARISON, evidence_index
+from app.tools.image_analysis import supported_tier
 
 PROPERTY_DAMAGE_FEE_CAP = 200.00
 """Real, sourced: Ryde's "up to $200" ceiling (Policy doc §4, Terms of Use Clause 11)."""
@@ -56,6 +57,16 @@ def compliance_violations(case_file: CaseFile, verdict: JudgeVerdict) -> list[st
                 violations.append(
                     f"cleaning fee ${amount:.2f} isn't a scheduled tier amount "
                     f"({sorted(PHOTO_ONLY_FEES)}) — no receipt to justify another figure"
+                )
+            # The fee can't exceed what the photos show (Image Analysis tier, mapped in
+            # code). Skipped when no photo has a usable finding: then a person decides.
+            tier = supported_tier(case_file.photos)
+            if tier == "none":
+                violations.append("the photos show no mess, so no cleaning fee is supported")
+            elif tier is not None and amount > PROPERTY_DAMAGE_TIERS[tier] + 0.005:
+                violations.append(
+                    f"cleaning fee ${amount:.2f} is above the {tier} tier "
+                    f"(${PROPERTY_DAMAGE_TIERS[tier]:.0f}) the photos show"
                 )
         elif remedy.type == RemedyType.NO_SHOW_FEE_WAIVER:
             fees = sum(
