@@ -23,8 +23,9 @@ from pydantic_ai import Agent, ModelRetry, RunContext
 from app.agents.retry import run_agent
 from app.config import settings
 from app.rules.escalation import CONFIDENCE_THRESHOLD, matching_bucket_rules
-from app.schemas import Argument, CaseFile, DecisionOutcome, JudgeVerdict, RemedyType
-from app.tools.evidence_lookup import evidence_index
+from app.rules.policy_math import no_show_fees
+from app.schemas import Argument, CaseFile, CaseRole, DecisionOutcome, JudgeVerdict, RemedyType
+from app.tools.evidence_lookup import ROUTE_COMPARISON, evidence_index
 from app.tools.policy_rag import search_policy
 
 CITATION_CORRECTION_ATTEMPTS = 1
@@ -52,13 +53,19 @@ How to decide:
     - 10–25%: merit 0.5.
     - Over 25%: merit 1.0.
     - A matching traffic event, or a rider-requested detour in the chat, justifies the
-      deviation regardless of size. An unsupported justification counts for nothing.
+      deviation regardless of size. ROUTE-COMPARISON's matching_traffic_events lists the
+      events that match, computed in code (active during the trip and near the planned
+      route); if it's non-empty, the deviation is justified and the claim is denied.
+      An unsupported justification (a claim in chat with no matching event) counts for
+      nothing.
     - If unjustified and the tier has merit, the remedy is a partial_refund of exactly
       ROUTE-COMPARISON's refund_if_unjustified. It's already computed from the policy
       formula; don't recompute it.
   - No-Show (POL-03), using PICKUP-PROXIMITY's reached_pickup:
     - If the driver never came within the arrival radius, a rider's dispute is upheld
-      (no_show_fee_waiver for the fee charged) and a driver's fee claim fails.
+      and a driver's fee claim fails (claim_denied, no_action).
+    - The remedy for an upheld rider dispute is always a no_show_fee_waiver of exactly
+      the fee in PAYMENT's add_on_fees, never a fare refund: the fee is what's disputed.
     - If the driver did arrive, the minimum wait applies and the fee stands only if the
       driver also tried to reach the rider.
   - Property Damage (POL-04): the claimant needs at least one photo. Tiers: minor $40
@@ -77,6 +84,8 @@ How to decide:
     missing receipt or for when the photo was submitted (POL-04).
   - Required evidence missing: outcome "declined_insufficient_evidence" with remedy
     no_action. That's distinct from denying the claim on its merits.
+- Outcomes are about the filer's claim. If the driver filed and the evidence goes
+  against the driver, the outcome is "claim_denied", even though that favours the rider.
 - Outcomes:
   - "claim_upheld" / "claim_upheld_partial" need a real remedy with a positive amount,
     in dollars. For no_show_fee_waiver, the amount is the fee shown in PAYMENT's
@@ -140,7 +149,7 @@ judge_agent = Agent(
     output_type=JudgeVerdict,
     deps_type=JudgeDeps,
     system_prompt=SYSTEM_PROMPT,
-    retries=2,
+    retries=3,
     name="judge",
 )
 
@@ -186,6 +195,19 @@ _DESTINATIONS = {
 }
 
 
+def _policy_amount(case_file: CaseFile, remedy_type: RemedyType) -> float | None:
+    """The amount the policy fixes for this remedy, computed in code (Policy doc §2, §3):
+    a waiver returns exactly the fee charged; a route refund is exactly the formula's
+    figure. None where the Judge's choice decides it (a cleaning fee's tier)."""
+    if remedy_type == RemedyType.NO_SHOW_FEE_WAIVER:
+        return no_show_fees(case_file.payment.add_on_fees) or None
+    if remedy_type in (RemedyType.PARTIAL_REFUND, RemedyType.FULL_REFUND):
+        comparison = evidence_index(case_file).get(ROUTE_COMPARISON)
+        if comparison and comparison.data["refund_if_unjustified"] > 0:
+            return comparison.data["refund_if_unjustified"]
+    return None
+
+
 def _policy_id(ref: str | None) -> str | None:
     """Clause IDs like "POL-03-04" mean policy POL-03. Reduce them to the policy ID
     rather than rejecting a citation that's right but too specific."""
@@ -202,11 +224,13 @@ async def validate_judge_citations(ctx: RunContext[JudgeDeps], out: JudgeVerdict
         {t.policy_id for t in deps.case_file.policy_tags}
         | deps.argued_policy_ids | deps.retrieved_policy_ids
     )
+    fixed_amount = _policy_amount(deps.case_file, out.remedy.type)
     out = out.model_copy(update={
         "policy_applied": _policy_id(out.policy_applied),
-        "remedy": out.remedy.model_copy(
-            update={"destination": _DESTINATIONS.get(out.remedy.type)}
-        ),
+        "remedy": out.remedy.model_copy(update={
+            "destination": _DESTINATIONS.get(out.remedy.type),
+            **({"amount": fixed_amount} if fixed_amount is not None else {}),
+        }),
     })
     bad_cites = sorted({c for f in out.reasoning for c in f.cites if c not in valid_refs})
     bad_policy = out.policy_applied if (
@@ -229,6 +253,21 @@ async def validate_judge_citations(ctx: RunContext[JudgeDeps], out: JudgeVerdict
         problems.append("confidence must be between 0.0 and 1.0")
     if out.remedy.type != RemedyType.NO_ACTION and not (out.remedy.amount or 0) > 0:
         problems.append(f"remedy {out.remedy.type} needs a positive dollar amount")
+    if (
+        deps.case_file.complainer_role == CaseRole.DRIVER
+        and out.outcome in _UPHELD
+        and out.remedy.type == RemedyType.NO_SHOW_FEE_WAIVER
+    ):
+        problems.append(
+            "the driver filed this claim, and a no_show_fee_waiver favours the rider. If the "
+            "evidence favours the rider, the driver's claim is denied: outcome claim_denied, "
+            "remedy no_action"
+        )
+    if out.outcome not in _UPHELD and out.remedy.type != RemedyType.NO_ACTION:
+        problems.append(
+            f"outcome {out.outcome} must carry remedy no_action, not {out.remedy.type}: "
+            "only an upheld claim has a remedy"
+        )
     if out.outcome in _UPHELD and not out.policy_applied:
         problems.append("an upheld claim must name the policy it applies in policy_applied")
 

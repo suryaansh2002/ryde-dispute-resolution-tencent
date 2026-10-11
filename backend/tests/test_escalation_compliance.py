@@ -166,3 +166,13 @@ def test_pickup_proximity_is_computed_from_the_trace():
     prox = evidence_index(load_case("no_show_charge"))["PICKUP-PROXIMITY"].data
     assert prox["reached_pickup"] is False
     assert 600 < prox["closest_approach_m"] < 700
+
+
+def test_waiver_cannot_be_the_remedy_for_a_drivers_upheld_claim():
+    from app.schemas import CaseRole
+
+    case = load_case("no_show_charge").model_copy(update={"complainer_role": CaseRole.DRIVER})
+    v = verdict(UPHELD, WAIVE, 4.5, policy="POL-03")
+    assert "favours the rider" in compliance_check(case, v)
+    rider_case = case.model_copy(update={"complainer_role": CaseRole.RIDER})
+    assert "favours the rider" not in (compliance_check(rider_case, v) or "")

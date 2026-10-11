@@ -8,6 +8,7 @@ import type {
   DemoScenario,
   EvidenceIndex,
   EvidenceRef,
+  GoldenReport,
   L2QueueItem,
   Outcome,
   Persona,
@@ -91,6 +92,9 @@ export const api = {
 
   adjudicateNow: (caseId: string) =>
     request<unknown>(`/cases/${caseId}/adjudicate`, { method: 'POST' }),
+
+  golden: () => request<GoldenReport>('/golden-run'),
+  startGolden: () => request<{ status: string }>('/golden-run', { method: 'POST' }),
 
   l2Queue: () => request<L2QueueItem[]>('/l2/queue'),
   l2Review: (
