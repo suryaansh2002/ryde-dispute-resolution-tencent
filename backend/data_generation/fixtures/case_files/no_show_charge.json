@@ -19,8 +19,8 @@
       "text": "I don't see you anywhere, I've been waiting outside for 6 minutes"
     }
   ],
-  "pickup_lat": 1.3000,
-  "pickup_lng": 103.8000,
+  "pickup_lat": 1.2960,
+  "pickup_lng": 103.7960,
   "gps_trace": [
     { "lat": 1.3000, "lng": 103.8000, "t": "2026-09-11T08:58:00Z" },
     { "lat": 1.3050, "lng": 103.8050, "t": "2026-09-11T09:04:00Z" }

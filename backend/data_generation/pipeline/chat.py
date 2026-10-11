@@ -34,19 +34,27 @@ _NO_SHOW_CLAIM_DRIVER = [
     "came out. I should be able to charge the no-show fee.",
 ]
 
-_PROPERTY_DAMAGE_DRIVER = [
-    "You spilled a drink all over the back seat, I'm filing a cleaning fee claim.",
-    "There's vomit on the seat, this needs a full cleaning.",
-    "Found mud and dirt all over the floor mats after your trip.",
-]
+# Severity -> (driver's chat line, description used in the claim). The text has to match
+# the tier the golden label expects, since the Judge picks the tier from it (Policy §4).
+_PROPERTY_DAMAGE_BY_SEVERITY = {
+    "minor": (
+        "You spilled a drink all over the back seat, I'm filing a cleaning fee claim.",
+        "a spilled drink all over the back seat",
+    ),
+    "moderate": (
+        "Found mud and dirt ground into the seats and floor mats after your trip.",
+        "mud and dirt stains ground into the seats and floor mats",
+    ),
+    "severe": (
+        "There's vomit on the seat, this needs a full cleaning.",
+        "vomit on the back seat",
+    ),
+}
 _PROPERTY_DAMAGE_RIDER_CHAT = [
     "That was already there before I got in.",
     "I didn't do anything, the car was already like that.",
 ]
-_PROPERTY_DAMAGE_CLAIM = [
-    "The rider left a mess in my vehicle that needs professional cleaning. "
-    "I've attached a photo as evidence.",
-]
+
 
 _SAFETY_CLAIM = [
     "The driver was driving recklessly and ran two red lights, I felt unsafe the "
@@ -57,9 +65,10 @@ _SAFETY_CLAIM = [
 
 def generate_chat_and_claim(
     category: DisputeCategory, complainer_role: str, rng: random.Random,
-    traffic_event_exists: bool = False,
+    traffic_event_exists: bool = False, severity: str = "minor",
 ) -> tuple[list[dict], str]:
-    """Returns (chat_messages_without_ids_or_timestamps, claim_text)."""
+    """Returns (chat_messages_without_ids_or_timestamps, claim_text). `severity` only
+    applies to Property Damage."""
     detour = rng.choice(["downtown", "the industrial estate", "the old town loop"])
     minutes = rng.randint(4, 12)
 
@@ -92,11 +101,15 @@ def generate_chat_and_claim(
         )
 
     elif category == DisputeCategory.PROPERTY_DAMAGE:
+        line, description = _PROPERTY_DAMAGE_BY_SEVERITY[severity]
         chat = [
-            {"sender_role": "driver", "text": rng.choice(_PROPERTY_DAMAGE_DRIVER)},
+            {"sender_role": "driver", "text": line},
             {"sender_role": "rider", "text": rng.choice(_PROPERTY_DAMAGE_RIDER_CHAT)},
         ]
-        claim = rng.choice(_PROPERTY_DAMAGE_CLAIM)
+        claim = (
+            f"The rider left {description} in my vehicle and it needs professional "
+            "cleaning. I've attached a photo as evidence."
+        )
 
     else:  # SAFETY_INCIDENT
         chat = [{"sender_role": complainer_role, "text": rng.choice(_SAFETY_CLAIM)}]

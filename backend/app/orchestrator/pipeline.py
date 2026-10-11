@@ -26,6 +26,8 @@ from app.data.cases import (
     insert_evidence,
     other_party_id,
     record_trace_event,
+    save_case_file,
+    trace_emitter,
     trip_party_role,
     update_case,
 )
@@ -77,8 +79,10 @@ async def file_claim(
             raise ClaimRejected(f"an open or decided case already exists for trip {trip_id!r}")
 
         complainee_id = other_party_id(trip, complainer_role)
-        case_id = await create_case(conn, trip_id, complainer_id, complainee_id, category)
-        sm = CaseStateMachine(case_id=case_id)
+        case_id = await create_case(
+            conn, trip_id, complainer_id, complainee_id, category, claim_text
+        )
+        sm = CaseStateMachine(case_id=case_id, emit=trace_emitter(conn))
 
         for item in evidence:
             await insert_evidence(
@@ -135,6 +139,7 @@ async def file_claim(
             complainer_role=complainer_role, complainer_id=complainer_id,
             complainee_id=complainee_id,
         )
+        await save_case_file(conn, case_id, case_file)
         await record_trace_event(
             conn, case_id, TraceEventKind.AGENT_OUTPUT, agent=AgentName.EVIDENCE_COLLECTION,
             output=case_file.model_dump(mode="json"),

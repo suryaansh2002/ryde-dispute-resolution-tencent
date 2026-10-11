@@ -27,4 +27,11 @@ uv run ruff check .                  # lint
 uv run uvicorn app.main:app --reload # dev server, http://localhost:8000/health
 ```
 
+End-to-end smoke test (real Neon + Groq, ~3–5 min, cleans up after itself; needs the server running):
+
+```bash
+uv run uvicorn app.main:app --port 8000 &
+uv run python -m scripts.smoke_e2e --base-url http://localhost:8000
+```
+
 Apply `migrations/0001_init.sql` against the Neon branch with `psql "$DATABASE_URL" -f migrations/0001_init.sql` (or via the `neon-postgres` skill/CLI) before running anything that touches the DB.

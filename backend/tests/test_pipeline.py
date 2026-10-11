@@ -53,6 +53,8 @@ def _wire(monkeypatch):
     monkeypatch.setattr(pipeline, "has_evidence", _async(False))
     monkeypatch.setattr(pipeline, "dispute_count_30d", _async(0))
     monkeypatch.setattr(pipeline, "get_trip", _async(make_trip()))
+    monkeypatch.setattr(pipeline, "save_case_file", _async(None))
+    monkeypatch.setattr(pipeline, "trace_emitter", lambda conn: _async(None))
 
 
 def _async(value):

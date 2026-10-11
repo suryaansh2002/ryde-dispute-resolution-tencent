@@ -22,6 +22,9 @@ class CaseState(StrEnum):
     AWAITING_RESPONSE = "awaiting_response"
     ADJUDICATING = "adjudicating"
     DECIDED = "decided"
+    # Gate, compliance veto, or the Judge sent it to the L2 human queue; a decision object
+    # exists but isn't final until ratified (system design §6.1).
+    ESCALATED = "escalated"
     SAFETY_BYPASSED = "safety_bypassed"
     DECLINED_INSUFFICIENT_EVIDENCE = "declined_insufficient_evidence"
 
@@ -29,6 +32,14 @@ class CaseState(StrEnum):
 class EscalationBucket(StrEnum):
     AGENT_DECIDABLE = "agent_decidable"
     ALWAYS_ESCALATE = "always_escalate"
+
+
+class DecisionOutcome(StrEnum):
+    CLAIM_UPHELD = "claim_upheld"
+    CLAIM_UPHELD_PARTIAL = "claim_upheld_partial"
+    CLAIM_DENIED = "claim_denied"
+    # Declined, not denied: the claimant can refile with better evidence (Policy doc §6).
+    DECLINED_INSUFFICIENT_EVIDENCE = "declined_insufficient_evidence"
 
 
 class RemedyType(StrEnum):

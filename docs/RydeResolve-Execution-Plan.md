@@ -15,8 +15,9 @@
 - `GET /cases/{id}` and `POST /cases/{id}/evidence` (upload to Neon Object Storage).
 - Synthetic data pipeline with golden-case labelling (built, not yet run at full scale).
 
+**Built since v1 of this doc (step 1):** the respondent's reply, the Judge, the escalation gate, the compliance check, stored decisions with a rendered decision document, and `GET /cases/{id}/decision`.
+
 **Not built:**
-- Everything after `awaiting_response`: the respondent's reply, the Judge, the escalation gate, the compliance check and stored decisions.
 - Live updates (SSE), the L2 queue, golden-run and Logfire.
 - All of the frontend.
 - Deployment.
@@ -40,7 +41,10 @@ The submission also needs:
 
 Each step unblocks the next. Estimates assume one person.
 
-### Step 1 — Finish the decision path in the backend (~1 day)
+### Step 1 — Finish the decision path in the backend (~1 day) — ✅ DONE 2026-10-11
+
+Verified with `backend/scripts/smoke_e2e.py` against real Neon + Groq. Route deviation → `decided` with the formula refund; repeat-filer no-show → `escalated`; property damage → `decided` with the $40 tier fee.
+
 - `POST /cases/{id}/response`: the other party's reply. Stored, then it triggers adjudication.
 - **Judge agent**: reads the case file and both advocates' arguments, never the raw complaint text. Read-only tools: Policy RAG, escalation-bucket lookup, request-L2.
 - **Escalation gate** (deterministic): sends a case to L2 if confidence is below the threshold, *or* the case falls in an "always escalate" bucket, *or* the Judge asked for L2. The buckets are read from a lookup table, not hardcoded.
@@ -82,6 +86,8 @@ Each step unblocks the next. Estimates assume one person.
 | Confidence threshold for L2 | 0.6 | Policy doc §8 |
 | Always escalate to L2 | Repeat filer (either party has 3+ disputes in 30 days); Property Damage remedy of $120 or more; compliance veto; Judge requested L2 | Policy doc §8, plus our own choices (not Ryde-sourced) |
 | Evidence shown to the person complained about after L2 review | Outcome only | Roadmap Day 9 default |
+| Dollar amounts | Computed in code (`app/rules/policy_math.py`), never by the Judge. The Judge picks the rule (justified or not, which damage tier); compliance vetoes any amount that doesn't match. | Added after live runs: the model's own refund arithmetic varied between runs on identical evidence |
+| Property Damage fee with a photo but no receipt | Exactly the tier's scheduled amount ($40 / $120 / $200) | Our own rule, not Ryde-sourced: the system collects photos, not cleaning receipts |
 | Cut order if time runs out | Image Analysis → golden-run dashboard → L2 console polish → real OneMap routes | — |
 
 ## 5. Needs a person, not code
