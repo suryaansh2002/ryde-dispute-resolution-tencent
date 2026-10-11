@@ -55,7 +55,7 @@ Verified with `backend/scripts/smoke_e2e.py` against real Neon + Groq. Route dev
 
 ### Step 2 — Deploy a bare version early (~0.5 day) — 🟡 READY, needs one manual step
 
-Done: `backend/Dockerfile` + root `render.yaml` Blueprint (Ohio, next to Neon), CORS, demo endpoints (`/demo/personas`, `/users/{id}/trips`, `/users/{id}/cases`), full 200-trip dataset in Neon. The container passes `scripts/smoke_e2e.py` locally. **Remaining (needs the repo owner):** create the Render service from the Blueprint (steps in `backend/README.md` → Deploying), then run the smoke script against the live URL.
+Done: `backend/Dockerfile` + root `render.yaml` Blueprint (Ohio, next to Neon), CORS, demo endpoints (`/demo/personas`, `/users/{id}/trips`, `/users/{id}/cases`), full 200-trip dataset in Neon. The container passes `scripts/smoke_e2e.py` locally. **Remaining, assigned to Dev B (@shiv0112) on his Render account:** follow [RydeResolve-Deploy-Backend.md](RydeResolve-Deploy-Backend.md) (create the service from the Blueprint, set secrets, run the smoke script against the live URL, check the live stream through Render's proxy).
 
 - Dockerfile, backend on Render, CORS, health check confirmed on the live URL.
 - Run the data generator at full scale (200 trips) against Neon.

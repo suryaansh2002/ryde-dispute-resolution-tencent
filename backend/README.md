@@ -38,6 +38,8 @@ Apply `migrations/0001_init.sql` against the Neon branch with `psql "$DATABASE_U
 
 ## Deploying (Render)
 
+**Full handoff with checklist: [`docs/RydeResolve-Deploy-Backend.md`](../docs/RydeResolve-Deploy-Backend.md).** Summary:
+
 The backend ships as a Docker image (`Dockerfile`), described by the Render Blueprint at the repo root (`render.yaml`): free plan, Ohio region (same AWS region as the Neon database), health check on `/health`, auto-deploy on changes under `backend/`.
 
 1. Render dashboard → **New → Blueprint** → connect GitHub and pick this repo. A private repo needs the Render GitHub app granted access to it.
