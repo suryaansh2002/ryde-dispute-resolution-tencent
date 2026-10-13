@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 from pydantic import BaseModel
 from pydantic_ai import Agent, ModelRetry, RunContext
 
+from app.agents.llm import agent_model_settings, output_spec
 from app.agents.retry import run_agent
 from app.config import settings
 from app.data.db import TripBundle, fetch_trip_bundle, get_connection
@@ -167,9 +168,11 @@ def _reconstruct(deps: EvidenceCollectionDeps, model_tags: list[PolicyTag]) -> C
 
 evidence_collection_agent = Agent(
     settings.agent_model,
-    output_type=PolicyTags,
+    output_type=output_spec(PolicyTags),
     deps_type=EvidenceCollectionDeps,
     system_prompt=SYSTEM_PROMPT,
+    model_settings=agent_model_settings(),
+    defer_model_check=True,
     name="evidence_collection",
 )
 

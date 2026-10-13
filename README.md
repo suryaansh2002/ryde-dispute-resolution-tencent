@@ -67,7 +67,7 @@ Anything flagged goes to the **human review** queue, where a reviewer ratifies o
 
   It has light and dark themes. See [`frontend/README.md`](frontend/README.md).
 - **Backend:** Python + FastAPI on Render: one service owning orchestration, the deterministic rules, and all agent calls.
-- **Agents:** `pydantic-ai` on Groq (`qwen/qwen3.8-27b`, text and vision), instrumented with Pydantic Logfire (every agent run and tool call).
+- **Agents:** `pydantic-ai` via OpenRouter free models by default (Nemotron 3 Super for the agents, Gemma 4 for vision, with fallbacks); any OpenRouter or Anthropic model can be set by env var, instrumented with Pydantic Logfire (every agent run and tool call).
 - **Data:** Neon Postgres + pgvector (trips, cases, trace events, decisions, golden cases, LLM usage). Evidence photos are in Neon Object Storage, in the same project.
 - **Transport:** REST for actions; Server-Sent Events for everything live, backed by Postgres `LISTEN/NOTIFY` and resumable with `Last-Event-ID`.
 
