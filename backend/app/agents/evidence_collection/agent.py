@@ -178,8 +178,12 @@ evidence_collection_agent = Agent(
 
 
 @evidence_collection_agent.tool
-async def db_query(ctx: RunContext[EvidenceCollectionDeps]) -> str:
+async def db_query(
+    ctx: RunContext[EvidenceCollectionDeps], case_id: str | None = None
+) -> str:
     """Fetch this case's trip, payment, chat log, evidence, and behavior profile data."""
+    # `case_id` is ignored (the case comes from deps); it's accepted because some models
+    # (e.g. OpenRouter's free Nemotron) won't call a zero-argument tool without one.
     conn = await get_connection()
     try:
         ctx.deps.bundle = await fetch_trip_bundle(
