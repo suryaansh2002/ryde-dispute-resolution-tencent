@@ -12,9 +12,8 @@ from dataclasses import dataclass, field
 
 from pydantic_ai import Agent, ModelRetry, RunContext
 
-from app.agents.llm import agent_model_settings, output_spec
+from app.agents.llm import agent_model, agent_model_settings, output_spec
 from app.agents.retry import run_agent
-from app.config import settings
 from app.schemas import Argument, CaseFile, CaseRole
 from app.tools.evidence_lookup import evidence_index
 from app.tools.policy_rag import search_policy
@@ -115,7 +114,7 @@ def render_case_file(case_file: CaseFile) -> str:
 
 def build_advocate_agent(role: CaseRole) -> Agent[AdvocateDeps, Argument]:
     agent = Agent(
-        settings.agent_model,
+        agent_model(),
         output_type=output_spec(Argument),
         deps_type=AdvocateDeps,
         system_prompt=_system_prompt(role),

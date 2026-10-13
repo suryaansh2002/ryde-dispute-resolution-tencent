@@ -5,9 +5,8 @@ reads only the raw claim submission, before a `CaseFile` exists.
 
 from pydantic_ai import Agent
 
-from app.agents.llm import agent_model_settings, output_spec
+from app.agents.llm import agent_model, agent_model_settings, output_spec
 from app.agents.retry import run_agent
-from app.config import settings
 from app.schemas.triage import TriageResult
 
 SYSTEM_PROMPT = """\
@@ -38,7 +37,7 @@ inventing a new category.
 """
 
 triage_agent = Agent(
-    settings.agent_model,
+    agent_model(),
     output_type=output_spec(TriageResult),
     system_prompt=SYSTEM_PROMPT,
     model_settings=agent_model_settings(),

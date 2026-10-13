@@ -26,9 +26,8 @@ import logfire
 from pydantic import BaseModel, ValidationError
 from pydantic_ai import Agent, BinaryContent
 
-from app.agents.llm import output_spec, vision_model_settings
+from app.agents.llm import output_spec, vision_model, vision_model_settings
 from app.agents.retry import run_agent
-from app.config import settings
 from app.schemas import CaseFile, DamageFinding, EvidencePhoto
 from app.tools.object_storage import get_object_bytes
 
@@ -62,7 +61,7 @@ class VisionReading(BaseModel):
 
 
 vision_agent = Agent(
-    settings.vision_model,
+    vision_model(),
     output_type=output_spec(VisionReading),
     model_settings=vision_model_settings(),
     defer_model_check=True,
