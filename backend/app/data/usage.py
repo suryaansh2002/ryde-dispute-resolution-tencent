@@ -19,12 +19,13 @@ current_case_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
 
 
 def model_name() -> str:
-    return settings.agent_model.removeprefix("groq:")
+    return settings.agent_model.split(":", 1)[-1]
 
 
 async def record_usage(
     agent: str,
     *,
+    model: str | None = None,
     input_tokens: int,
     output_tokens: int,
     requests: int = 1,
@@ -41,7 +42,7 @@ async def record_usage(
                 """INSERT INTO llm_usage (case_id, agent, model, input_tokens, output_tokens,
                                           requests, tool_calls, latency_ms)
                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)""",
-                case_id, agent, model_name(), input_tokens, output_tokens, requests,
+                case_id, agent, model or model_name(), input_tokens, output_tokens, requests,
                 tool_calls, latency_ms,
             )
         finally:
