@@ -234,7 +234,6 @@ textarea.input:focus { outline: 2px solid color-mix(in srgb, var(--focus) 45%, t
 .queue-item { width: 100%; text-align: left; border: 0; background: none; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 13px 20px; border-top: 1px solid var(--hair); position: relative; }
 .queue-item:hover { background: var(--surface-2); }
 .queue-item[aria-current="true"] { background: var(--fill); }
-.queue-item.safety::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 0 3px 3px 0; background: var(--bad); }
 .queue-item .t { font-weight: 600; font-size: 15px; }
 .queue-item .m { font-size: 13px; color: var(--ink-3); }
 .queue-item .r { text-align: right; font-size: 13px; color: var(--ink-3); }
@@ -253,8 +252,7 @@ textarea.input:focus { outline: 2px solid color-mix(in srgb, var(--focus) 45%, t
 .debate { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 @media (max-width: 760px) { .debate { grid-template-columns: minmax(0, 1fr); } }
 .side { border-radius: 16px; padding: 16px; background: var(--surface-2); border: 1px solid var(--hair); display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.side.rider { border-top: 3px solid var(--rider); }
-.side.driver { border-top: 3px solid var(--driver); }
+.side.rider, .side.driver { border-top: 1px solid var(--hair); }
 .side p { font-size: 14px; color: var(--ink-2); line-height: 1.55; }
 .clamp { display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
 .more-btn { border: 0; background: none; padding: 0; color: var(--link); font-size: 13px; align-self: flex-start; }
@@ -485,6 +483,46 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
 .dp-l small { display: block; font-weight: 400; font-size: 13px; color: var(--ink-3); margin-top: 2px; }
 .dp-t { font-size: 12px; color: var(--ink-4); padding-top: 5px; font-variant-numeric: tabular-nums; }
 .dp-sum { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--hair); align-items: flex-start; }
+
+/* transcript (overview) */
+.transcript { display: flex; flex-direction: column; gap: 26px; max-width: 64ch; }
+.tq { margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.tq figcaption { font-size: 14px; }
+.tq blockquote { margin: 0; font-family: var(--font-display); font-size: 23px; line-height: 1.38; letter-spacing: -0.015em; color: var(--ink); text-wrap: pretty; }
+.fn { border: 0; background: none; padding: 0 1px; margin-left: 1px; font-size: 13px; font-weight: 600; color: var(--link); vertical-align: super; line-height: 0; font-family: var(--font); }
+.fn:hover { text-decoration: underline; }
+.fn + .fn { margin-left: 4px; }
+.ruling-line { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; padding-top: 18px; border-top: 1px solid var(--line); }
+.ruling-line p { font-size: 19px; margin-top: 4px; }
+.footnotes { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 3px; font-size: 13px; color: var(--ink-3); }
+/* inbox (support queue, docket) */
+.inbox-group { padding: 0 8px 8px; }
+.inbox-h { display: flex; justify-content: space-between; font-family: var(--font); font-size: 13px; font-weight: 600; color: var(--ink-3); padding: 14px 12px 6px; border-top: 1px solid var(--hair); }
+.inbox-group:first-of-type .inbox-h { border-top: 0; padding-top: 4px; }
+.inbox-h span { font-weight: 500; font-variant-numeric: tabular-nums; }
+.inbox-row { width: 100%; text-align: left; border: 0; background: none; display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 12px; transition: background .12s; }
+.inbox-row:hover { background: var(--surface-2); }
+.inbox-row[aria-current="true"] { background: var(--fill); }
+.inbox-ic { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; background: var(--fill); color: var(--ink-2); }
+.inbox-row[aria-current="true"] .inbox-ic { background: var(--surface); }
+.inbox-ic.bad { background: var(--bad-soft); color: var(--bad); }
+.inbox-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.inbox-t { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.inbox-t .muted { font-weight: 400; }
+.inbox-why { font-size: 13px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.inbox-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; font-size: 13px; color: var(--ink-3); }
+.inbox-meta .num { color: var(--ink); font-weight: 500; }
+.docket-row { grid-template-columns: 24px minmax(0, 1fr); }
+.docket-row .vs { color: var(--ink-4); font-weight: 400; font-style: italic; }
+.mark { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; }
+.mark.good { background: var(--good-soft); color: var(--good); }
+.mark.warn { background: var(--warn-soft); color: var(--warn); }
+.mark.bad { background: var(--bad-soft); color: var(--bad); }
+.mark.neutral { background: var(--fill); color: var(--ink-3); }
+.docket-filter { display: flex; gap: 4px; flex-wrap: wrap; padding: 0 16px 10px; }
+.docket-filter button { border: 0; background: none; padding: 5px 10px; border-radius: 980px; font-size: 13px; color: var(--ink-3); }
+.docket-filter button[aria-pressed="true"] { background: var(--fill); color: var(--ink); font-weight: 500; }
+.case-list { padding: 0 8px 8px; }
 </style>
 
 <div id="root"></div>
@@ -728,7 +766,7 @@ function Preview({ caseId, refId, compact }) {
   if (ev.kind === "route" || ev.kind === "gps_trace") return compact ? html`<p class="small muted">${ev.kind === "route" ? `${d.length_km.toFixed(2)} km` : `${d.length} GPS fixes`}. Open to see the map.</p>` : html`<${TripMap} caseId=${caseId} />`;
   return null;
 }
-function Cite({ caseId, refId }) {
+function Cite({ caseId, refId, n }) {
   const ctx = useContext(EvidenceCtx);
   const [pos, setPos] = useState(null);
   const ref = useRef(null);
@@ -739,8 +777,8 @@ function Cite({ caseId, refId }) {
     const top = r.bottom + 8 + 260 > window.innerHeight ? Math.max(12, r.top - 8 - 240) : r.bottom + 8;
     setPos({ left, top });
   };
-  return html`<button ref=${ref} type="button" class=${`cite${refId.startsWith("POL-") ? " policy" : ""}`} onMouseEnter=${show} onMouseLeave=${() => setPos(null)} onFocus=${show} onBlur=${() => setPos(null)} onClick=${() => { setPos(null); ctx.open(caseId, refId); }} aria-label=${`${label} ${refId}, open evidence`}>
-    <${Icon} name=${icon} size=${12} />${refId}
+  return html`<button ref=${ref} type="button" class=${n ? "fn" : `cite${refId.startsWith("POL-") ? " policy" : ""}`} onMouseEnter=${show} onMouseLeave=${() => setPos(null)} onFocus=${show} onBlur=${() => setPos(null)} onClick=${() => { setPos(null); ctx.open(caseId, refId); }} aria-label=${`${label} ${refId}, open evidence`}>
+    ${n ? n : html`<${Icon} name=${icon} size=${12} />${refId}`}
     ${pos && html`<div class="popover" style=${pos} role="tooltip"><div class="popover-title"><span>${label}</span><span class="mono">${refId}</span></div><${Preview} caseId=${caseId} refId=${refId} compact=${true} /></div>`}
   </button>`;
 }
@@ -1363,6 +1401,17 @@ function whyChips(q) {
   if (q.escalation && q.escalation.compliance_veto) out.push(["bad", "Rule check failed"]);
   return out;
 }
+function whyText(q) {
+  if (q.is_safety) return "Safety report. No AI has decided anything.";
+  const out = [];
+  const r = (q.escalation && q.escalation.reasons) || [];
+  if (r.some((x) => x.startsWith("bucket: high_value"))) out.push("Fee of $120 or more");
+  if (r.some((x) => x.startsWith("bucket: repeat_filer"))) out.push("3+ disputes in 30 days");
+  if (q.escalation && q.escalation.confidence_escalate) out.push("Low confidence");
+  if (r.some((x) => x.startsWith("Judge requested"))) out.push("The Judge asked for a person");
+  if (q.escalation && q.escalation.compliance_veto) out.push("A rule check failed");
+  return out.join(" · ");
+}
 function band(conf) { return conf >= 0.85 ? "High" : conf >= 0.6 ? "Moderate" : "Low"; }
 function SupportConsole({ go }) {
   const [queue, setQueue] = useState(D.queue);
@@ -1392,13 +1441,16 @@ function SupportConsole({ go }) {
       <span class="small muted"><kbd>J</kbd> <kbd>K</kbd> move · <kbd>A</kbd> approve · <kbd>C</kbd> change</span></div>
     <div class="console">
       <section class="panel" aria-label="Queue">
-        <div class="panel-head"><h2>Waiting for review</h2><span class="pill neutral">${queue.length}</span></div>
+        <div class="panel-head"><h2>Waiting for review</h2><span class="small muted num">${queue.length} cases</span></div>
         ${queue.length === 0 && html`<div style=${{ padding: "8px 20px 24px" }}><p class="muted">The queue is clear. New cases appear here the moment a check flags them.</p></div>`}
-        ${queue.map((q) => html`<button key=${q.id} class=${`queue-item${q.is_safety ? " safety" : ""}`} aria-current=${q.id === sel} onClick=${() => setSel(q.id)}>
-          <span class="t">${CAT_FULL[q.category]}</span><span class="r num">${q.remedy && q.remedy.amount ? money(q.remedy.amount) : ""}</span>
-          <span class="m"><span class="party ${q.complainer_role}" style=${{ fontWeight: 500 }}><i></i>${q.complainer_name}</span></span><span class="r">${ago(q.updated_at)}</span>
-          <span style=${{ gridColumn: "1 / -1", display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>${whyChips(q).map(([t, l]) => html`<span key=${l} class=${`pill ${t}`}>${l}</span>`)}</span>
-        </button>`)}
+        ${[["Safety reports", queue.filter((q) => q.is_safety)], ["Flagged by the checks", queue.filter((q) => !q.is_safety)]].map(([g, items]) => items.length > 0 && html`<div key=${g} class="inbox-group">
+          <h3 class="inbox-h">${g}<span>${items.length}</span></h3>
+          ${items.map((q) => html`<button key=${q.id} class="inbox-row" aria-current=${q.id === sel} onClick=${() => setSel(q.id)}>
+            <span class=${`inbox-ic ${q.is_safety ? "bad" : ""}`}><${Icon} name=${q.is_safety ? "shield" : { route_deviation: "route", no_show_charge: "pin", property_damage: "camera" }[q.category]} size=${16} /></span>
+            <span class="inbox-main"><span class="inbox-t">${q.complainer_name}<span class="muted"> · ${CAT[q.category]}</span></span><span class="inbox-why">${whyText(q)}</span></span>
+            <span class="inbox-meta"><span class="num">${q.remedy && q.remedy.amount ? money(q.remedy.amount) : ""}</span><span>${ago(q.updated_at)}</span></span>
+          </button>`)}
+        </div>`)}
       </section>
       ${item ? html`<${ReviewCase} key=${item.id} item=${item} go=${go} onDone=${finish} />` : html`<section class="panel" style=${{ padding: 40 }}><h2 style=${{ fontSize: 22 }}>All caught up</h2><p class="muted" style=${{ marginTop: 6 }}>Every flagged case has a decision from a person.</p></section>`}
     </div>
@@ -1495,13 +1547,20 @@ function buildSteps(id) {
   steps.push({ key: "outcome", label: v.state === "decided" ? "Judgment" : v.state === "escalated" ? "Referred" : v.state === "safety_bypassed" ? "Safety team" : "Declined", kind: "person", status: v.state === "decided" ? "done" : v.state === "declined_insufficient_evidence" ? "stop" : "flag" });
   return { steps, prevention, tool, stoppedAtRules };
 }
+const DOCKET_FILTERS = [["all", "All"], ["decided", "Decided"], ["escalated", "With a person"], ["safety_bypassed", "Safety"], ["declined_insufficient_evidence", "Declined"]];
+const DOCKET_MARK = { decided: ["check", "good", "Decided"], escalated: ["user", "warn", "With a person"], safety_bypassed: ["shield", "bad", "Safety team"], declined_insufficient_evidence: ["x", "neutral", "Declined"] };
 function TraceApp({ caseId, setCase, tab, setTab }) {
+  const [filter, setFilter] = useState("all");
   return html`<div class="page">
     <div class="page-title"><div><h1>AI trace</h1><p>Each case as a hearing: the complaint, the exhibits, counsel for each side, the bench's ruling and the clerk's checks. Hover an exhibit to preview it, click to open it.</p></div>
       <div class="subnav" role="group" aria-label="View"><button aria-pressed=${tab === "cases"} onClick=${() => setTab("cases")}>Docket</button><button aria-pressed=${tab === "accuracy"} onClick=${() => setTab("accuracy")}>Accuracy</button></div></div>
     ${tab === "accuracy" ? html`<${Accuracy} open=${(id) => { setCase(id); setTab("cases"); }} />` : html`<div class="console" style=${{ gridTemplateColumns: "minmax(0, 300px) minmax(0, 1fr)" }}>
-      <section class="panel" aria-label="Docket"><div class="panel-head"><h2>Docket</h2><span class="tiny muted">${TRACE_ORDER.length} real runs</span></div>
-        <div class="case-list">${TRACE_ORDER.map((id) => { const v = CASES[id].view; const [t, l] = statusPill(v.state); return html`<button key=${id} class="queue-item" aria-current=${id === caseId} onClick=${() => setCase(id)}><span class="t" style=${{ fontSize: 14 }}>${first(v.complainer_name)} v. ${first(v.complainee_name)}</span><span class="r mono">${id.slice(5)}</span><span class="m">${CAT_FULL[v.category]}</span><span class="r"><span class=${`pill ${t}`}>${l}</span></span></button>`; })}</div>
+      <section class="panel" aria-label="Docket"><div class="panel-head"><h2>Docket</h2><span class="small muted num">${TRACE_ORDER.length} cases</span></div>
+        <div class="docket-filter" role="group" aria-label="Filter">${DOCKET_FILTERS.map(([k, l]) => html`<button key=${k} aria-pressed=${filter === k} onClick=${() => setFilter(k)}>${l}</button>`)}</div>
+        <div class="case-list">${TRACE_ORDER.filter((id) => filter === "all" || CASES[id].view.state === filter).map((id) => { const v = CASES[id].view; const [ic, tone, l] = DOCKET_MARK[v.state]; return html`<button key=${id} class="inbox-row docket-row" aria-current=${id === caseId} onClick=${() => setCase(id)}>
+          <span class=${`mark ${tone}`} title=${l}><${Icon} name=${ic} size=${13} stroke=${2.4} /><span class="sr">${l}</span></span>
+          <span class="inbox-main"><span class="inbox-t">${v.complainer_name} <span class="vs">v.</span> ${v.complainee_name}</span><span class="inbox-why">${CAT_FULL[v.category]} · <span class="mono">${id}</span></span></span>
+        </button>`; })}</div>
       </section>
       <${CaseTrace} key=${caseId} id=${caseId} />
     </div>`}
@@ -1646,9 +1705,14 @@ function Overview({ go }) {
     </section>
     <section class="ov-band">
       <div><h2>Both sides get an advocate.</h2><p class="lede">Two agents argue the same case from the identical evidence file. Every factual claim has to cite a real item in it, or it's stripped.</p></div>
-      <div style=${{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <div class="debate">${[["rider", rider, "Rider's advocate"], ["driver", driverArg, "Driver's advocate"]].map(([r, a, t]) => html`<div key=${r} class=${`side ${r}`} style=${{ background: "var(--surface)" }}><span class="party ${r}"><i></i>${t}</span><p>${a.text.split(/(?<=[.!?])\s+(?=[A-Z])/).slice(0, 2).join(" ")}</p><div>${a.cites.slice(0, 4).map((x) => html`<${Cite} key=${x} caseId=${id} refId=${x} />`)}</div></div>`)}</div>
-        <div class="verdict"><div class="verdict-head"><div><p class="small muted">The Judge, who never reads the complaint</p><h4>${OUTCOME[dec.outcome]} · ${money(dec.remedy.amount)} refund</h4></div><button class="btn btn-secondary btn-sm" onClick=${() => go("trace", id)}>See the ruling</button></div></div>
+      <div class="transcript">
+        <figure class="tq"><figcaption><span class="party rider"><i></i>Counsel for the rider</span></figcaption>
+          <blockquote>“The route data shows the driver took an 11.0 km path against the 8.3 km fastest route, 33% further, squarely in the tier that refunds the extra fare in full.”<${Cite} caseId=${id} refId="ROUTE-COMPARISON" n="1" /><${Cite} caseId=${id} refId="ROUTE-ACTUAL" n="2" /></blockquote></figure>
+        <figure class="tq"><figcaption><span class="party driver"><i></i>Counsel for the driver</span><span class="muted"> · conceding the point</span></figcaption>
+          <blockquote>“The driver's only asserted road closure has no matching entry in the traffic records, so under the policy that unsupported assertion does not justify the deviation.”<${Cite} caseId=${id} refId="MSG-0460" n="3" /><${Cite} caseId=${id} refId="POL-02" n="4" /></blockquote></figure>
+        <div class="ruling-line"><div><span class="muted small">The bench, which never reads the complaint</span><p><strong>Claim upheld.</strong> ${money(dec.remedy.amount)} refunded to the rider.</p></div><button class="btn btn-quiet" onClick=${() => go("trace", id)}>Read the ruling <${Icon} name="arrow" size=${14} /></button></div>
+        <ol class="footnotes"><li>Route comparison, computed from the trip's GPS</li><li>Route driven</li><li>The driver's message during the trip</li><li>Route deviation policy</li></ol>
+        <p class="tiny muted">Excerpts from CASE-0153, lightly shortened. Hover a number to preview the evidence, click to open it.</p>
       </div>
     </section>
     <section class="ov-band">
