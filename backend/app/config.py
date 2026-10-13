@@ -34,7 +34,11 @@ class Settings(BaseSettings):
     # and 50/day (1000/day once the account has bought $10 of credits); one case makes
     # roughly 10-20 requests, and free models' shared upstream pools get rate-limited.
     agent_model: str = "openrouter:nvidia/nemotron-3-super-120b-a12b:free"
-    # OpenRouter only: comma-separated models tried in order when the main one errors.
+    # Comma-separated models tried in order when the main one errors. For OpenRouter, bare
+    # slugs (OpenRouter falls back server-side); for any other provider, full
+    # "<provider>:<model>" strings (pydantic-ai's FallbackModel), e.g. Gemini's free tier
+    # allows 5 requests/min per model, so "google:gemini-3.8-flash,google:gemini-3.5-flash-lite"
+    # spreads a case across three quotas.
     agent_fallback_models: str = (
         "google/gemma-4-31b-it:free,nvidia/nemotron-3-ultra-550b-a55b:free"
     )

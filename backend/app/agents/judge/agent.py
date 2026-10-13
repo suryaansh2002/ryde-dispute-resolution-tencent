@@ -20,9 +20,8 @@ from dataclasses import dataclass, field
 
 from pydantic_ai import Agent, ModelRetry, RunContext
 
-from app.agents.llm import agent_model_settings, output_spec
+from app.agents.llm import agent_model, agent_model_settings, output_spec
 from app.agents.retry import run_agent
-from app.config import settings
 from app.rules.escalation import CONFIDENCE_THRESHOLD, matching_bucket_rules
 from app.rules.policy_math import no_show_fees
 from app.schemas import (
@@ -154,7 +153,7 @@ def render_judge_input(
 
 
 judge_agent = Agent(
-    settings.agent_model,
+    agent_model(),
     output_type=output_spec(JudgeVerdict),
     deps_type=JudgeDeps,
     system_prompt=SYSTEM_PROMPT,

@@ -15,7 +15,7 @@ import time
 from typing import Any
 
 from pydantic_ai import Agent
-from pydantic_ai.exceptions import ModelHTTPError
+from pydantic_ai.exceptions import FallbackExceptionGroup, ModelHTTPError
 
 from app.data.usage import record_usage
 
@@ -24,9 +24,23 @@ MAX_ATTEMPTS = 8
 
 
 def _daily_quota_exhausted(exc: ModelHTTPError) -> bool:
-    """A per-day quota (e.g. OpenRouter's free tier: 50 requests a day) won't clear in the
-    next two minutes, so backing off only makes the request look hung. Fail at once."""
-    return exc.status_code == 429 and "per-day" in str(exc.body or "")
+    """A per-day quota (OpenRouter's free tier: 50 requests a day; Gemini's: 20 per model,
+    quota id "...PerDayPerProjectPerModel-FreeTier") won't clear in the next two minutes,
+    so backing off only makes the request look hung. Fail at once."""
+    body = str(exc.body or "")
+    return exc.status_code == 429 and ("per-day" in body or "PerDay" in body)
+
+
+def _retryable(exc: Exception) -> bool:
+    if isinstance(exc, FallbackExceptionGroup):
+        # Every model in a FallbackModel chain failed; worth another round only if each
+        # failure was itself transient.
+        return all(_retryable(e) for e in exc.exceptions)
+    return (
+        isinstance(exc, ModelHTTPError)
+        and exc.status_code in RETRY_STATUSES
+        and not _daily_quota_exhausted(exc)
+    )
 
 
 async def run_agent(agent: Agent[Any, Any], *args: Any, **kwargs: Any) -> Any:
@@ -34,12 +48,8 @@ async def run_agent(agent: Agent[Any, Any], *args: Any, **kwargs: Any) -> Any:
         started = time.perf_counter()
         try:
             result = await agent.run(*args, **kwargs)
-        except ModelHTTPError as exc:
-            if (
-                exc.status_code not in RETRY_STATUSES
-                or attempt == MAX_ATTEMPTS
-                or _daily_quota_exhausted(exc)
-            ):
+        except (ModelHTTPError, FallbackExceptionGroup) as exc:
+            if attempt == MAX_ATTEMPTS or not _retryable(exc):
                 raise
             await asyncio.sleep(min(2 ** attempt, 30) + random.random())
             continue
