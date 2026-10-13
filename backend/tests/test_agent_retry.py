@@ -83,3 +83,19 @@ async def test_successful_runs_record_token_usage_for_the_current_case(monkeypat
         usage.current_case_id.reset(token)
     _, case_id, agent, _model, inp, out, requests, tools, _ms = written[0]
     assert (case_id, agent, inp, out, requests, tools) == ("CASE-0001", "judge", 1200, 300, 2, 1)
+
+
+async def test_daily_quota_is_not_retried():
+    class Agent:
+        name = "judge"
+        calls = 0
+
+        async def run(self, prompt):
+            Agent.calls += 1
+            raise ModelHTTPError(
+                429, "nemotron", {"message": "Rate limit exceeded: free-models-per-day."}
+            )
+
+    with pytest.raises(ModelHTTPError):
+        await retry.run_agent(Agent(), "x")
+    assert Agent.calls == 1

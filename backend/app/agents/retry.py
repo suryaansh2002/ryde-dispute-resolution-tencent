@@ -23,13 +23,23 @@ RETRY_STATUSES = {429, 500, 502, 503, 504, 529}
 MAX_ATTEMPTS = 8
 
 
+def _daily_quota_exhausted(exc: ModelHTTPError) -> bool:
+    """A per-day quota (e.g. OpenRouter's free tier: 50 requests a day) won't clear in the
+    next two minutes, so backing off only makes the request look hung. Fail at once."""
+    return exc.status_code == 429 and "per-day" in str(exc.body or "")
+
+
 async def run_agent(agent: Agent[Any, Any], *args: Any, **kwargs: Any) -> Any:
     for attempt in range(1, MAX_ATTEMPTS + 1):
         started = time.perf_counter()
         try:
             result = await agent.run(*args, **kwargs)
         except ModelHTTPError as exc:
-            if exc.status_code not in RETRY_STATUSES or attempt == MAX_ATTEMPTS:
+            if (
+                exc.status_code not in RETRY_STATUSES
+                or attempt == MAX_ATTEMPTS
+                or _daily_quota_exhausted(exc)
+            ):
                 raise
             await asyncio.sleep(min(2 ** attempt, 30) + random.random())
             continue
