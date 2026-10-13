@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 
 from pydantic_ai import Agent, ModelRetry, RunContext
 
+from app.agents.llm import agent_model_settings, output_spec
 from app.agents.retry import run_agent
 from app.config import settings
 from app.rules.escalation import CONFIDENCE_THRESHOLD, matching_bucket_rules
@@ -154,9 +155,11 @@ def render_judge_input(
 
 judge_agent = Agent(
     settings.agent_model,
-    output_type=JudgeVerdict,
+    output_type=output_spec(JudgeVerdict),
     deps_type=JudgeDeps,
     system_prompt=SYSTEM_PROMPT,
+    model_settings=agent_model_settings(),
+    defer_model_check=True,
     retries=3,
     name="judge",
 )
@@ -172,9 +175,13 @@ async def policy_rag(ctx: RunContext[JudgeDeps], query: str) -> list[dict]:
 
 
 @judge_agent.tool
-async def escalation_bucket_lookup(ctx: RunContext[JudgeDeps]) -> dict:
+async def escalation_bucket_lookup(
+    ctx: RunContext[JudgeDeps], case_id: str | None = None
+) -> dict:
     """Check whether this case is in an always-escalate bucket (read-only). Rules that
     depend on your verdict, like the remedy amount, are applied after you decide."""
+    # `case_id` is ignored (the case comes from deps); it's accepted because some models
+    # (e.g. OpenRouter's free Nemotron) won't call a zero-argument tool without one.
     rules = matching_bucket_rules(ctx.deps.case_file)
     return {
         "bucket": "always_escalate" if rules else "agent_decidable",

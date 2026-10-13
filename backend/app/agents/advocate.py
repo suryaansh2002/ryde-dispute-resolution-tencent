@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 
 from pydantic_ai import Agent, ModelRetry, RunContext
 
+from app.agents.llm import agent_model_settings, output_spec
 from app.agents.retry import run_agent
 from app.config import settings
 from app.schemas import Argument, CaseFile, CaseRole
@@ -19,7 +20,7 @@ from app.tools.evidence_lookup import evidence_index
 from app.tools.policy_rag import search_policy
 
 # Bad citations get this many correction attempts before being stripped and flagged
-# (system design §4 rule 1) — each attempt is another Groq call.
+# (system design §4 rule 1) — each attempt is another model call.
 CITATION_CORRECTION_ATTEMPTS = 1
 
 # Kept out of the prompt body (potentially hundreds of points); fetched via evidence_lookup.
@@ -115,9 +116,11 @@ def render_case_file(case_file: CaseFile) -> str:
 def build_advocate_agent(role: CaseRole) -> Agent[AdvocateDeps, Argument]:
     agent = Agent(
         settings.agent_model,
-        output_type=Argument,
+        output_type=output_spec(Argument),
         deps_type=AdvocateDeps,
         system_prompt=_system_prompt(role),
+        model_settings=agent_model_settings(),
+        defer_model_check=True,
         retries=2,
         name=f"{role}_advocate",
     )

@@ -45,7 +45,7 @@ Render asks for each value marked `sync: false`. Copy each from the root `.env` 
 
 | Key | Where it comes from |
 |---|---|
-| `GROQ_API_KEY` | `.env` |
+| `OPENROUTER_API_KEY` | `.env` (or `ANTHROPIC_API_KEY` if `AGENT_MODEL` is an `anthropic:` model) |
 | `DATABASE_URL` | `.env` (pooled Neon URL, quotes removed) |
 | `DATABASE_URL_UNPOOLED` | `.env` (direct Neon URL, quotes removed). **Required:** the app's connections and the live-update stream use it |
 | `AWS_ACCESS_KEY_ID` | `.env` (Neon Object Storage) |
@@ -54,7 +54,17 @@ Render asks for each value marked `sync: false`. Copy each from the root `.env` 
 | `AWS_REGION` | `.env` |
 | `LOGFIRE_TOKEN` | `.env` |
 
-`CORS_ORIGINS` is pre-set to `*` by the Blueprint, so leave it. Don't add `GROQ_BASE_URL`; the default is correct, and the `/openai/v1` value in older notes caused 404s.
+`CORS_ORIGINS` is pre-set to `*` by the Blueprint, so leave it. Model settings have working defaults in `backend/app/config.py`; add any of these as env vars to override them without a code change:
+
+| Variable | Default | Notes |
+|---|---|---|
+| `AGENT_MODEL` | `openrouter:nvidia/nemotron-3-super-120b-a12b:free` | the five agents; e.g. `anthropic:claude-haiku-5-5` with `ANTHROPIC_API_KEY` |
+| `AGENT_FALLBACK_MODELS` | Gemma 4 31B, Nemotron Ultra (free) | OpenRouter only; tried in order when the main model errors |
+| `VISION_MODEL` / `VISION_FALLBACK_MODELS` | Gemma 4 31B, then Nemotron Nano Omni, Gemma 4 26B | Image Analysis; every model must accept images |
+| `AGENT_OUTPUT_MODE` | `prompted` | `tool` for Anthropic models; free OpenRouter models mangle tool-call output |
+| `AGENT_MAX_TOKENS` / `AGENT_EFFORT` / `AGENT_TEMPERATURE` | 16000 / `medium` / unset | effort is Anthropic-only; Claude Haiku 5.5 and Opus 5.5 reject a temperature |
+
+OpenRouter `:free` models allow 20 requests a minute and 50 a day (1000 a day once the account has bought $10 of credits); one case makes roughly 10-20 requests, and free models' shared upstream pools get rate-limited at busy times.
 
 ### 4. Wait for the first deploy
 

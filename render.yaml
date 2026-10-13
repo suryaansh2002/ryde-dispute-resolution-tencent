@@ -16,8 +16,11 @@ services:
       paths:
         - backend/**
     envVars:
-      - key: GROQ_API_KEY
+      # The key for whichever provider AGENT_MODEL names (ANTHROPIC_API_KEY for anthropic:).
+      - key: OPENROUTER_API_KEY
         sync: false
+      # Model settings default in app/config.py; add AGENT_MODEL, AGENT_FALLBACK_MODELS,
+      # VISION_MODEL, AGENT_OUTPUT_MODE etc. here to override without a code change.
       - key: DATABASE_URL
         sync: false
       - key: DATABASE_URL_UNPOOLED

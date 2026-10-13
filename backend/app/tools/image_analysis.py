@@ -15,21 +15,20 @@ gives both advocates the identical finding (they read it with their own image_an
 tool), and lets the Judge and the compliance check see it. Results are cached by photo
 hash: the same bytes always get the same finding within a process.
 
-Not a sixth pydantic_ai.Agent: a single structured model call, wrapped in a Logfire span.
+Not one of the five pipeline agents: a single structured model call (one tool-free
+pydantic_ai.Agent run), wrapped in a Logfire span.
 """
 
 import asyncio
-import base64
 import json
-import os
-import random
 
-import httpx
 import logfire
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
+from pydantic_ai import Agent, BinaryContent
 
+from app.agents.llm import output_spec, vision_model_settings
+from app.agents.retry import run_agent
 from app.config import settings
-from app.data.usage import record_usage
 from app.schemas import CaseFile, DamageFinding, EvidencePhoto
 from app.tools.object_storage import get_object_bytes
 
@@ -48,9 +47,27 @@ orange, sometimes dripping or splattered. Any liquid containing food chunks is v
 - "bodily_fluid_other": blood, urine or similar
 - "other_damage": tears, burns or broken parts
 Also say how much of the seat or floor it covers: "small" (one spot), "medium", or "large".
-Reply with JSON only: {"shows_vehicle_interior": bool, "mess_type": "...", \
-"extent": "small"|"medium"|"large", "description": "<one factual sentence>", \
-"confidence": <0..1>}"""
+Give one factual sentence describing the photo, and your confidence from 0 to 1."""
+
+
+class VisionReading(BaseModel):
+    """What the vision model reports; `mess_type` is checked against the vocabulary
+    afterwards, so an out-of-vocabulary answer is recorded rather than retried."""
+
+    shows_vehicle_interior: bool
+    mess_type: str
+    extent: str
+    description: str
+    confidence: float
+
+
+vision_agent = Agent(
+    settings.vision_model,
+    output_type=output_spec(VisionReading),
+    model_settings=vision_model_settings(),
+    defer_model_check=True,
+    name="image_analysis",
+)
 
 # Policy doc §4 tier table (real, Ryde-sourced categories). other_damage (tears, burns)
 # isn't a cleaning tier at all, so it maps to "unclear" and leaves the call to a person.
@@ -86,15 +103,6 @@ def supported_tier(photos: list[EvidencePhoto]) -> str | None:
     return max(tiers, key=TIER_ORDER.index)
 
 
-def _model_name() -> str:
-    return settings.agent_model.removeprefix("groq:")
-
-
-def _endpoint() -> str:
-    base = os.environ.get("GROQ_BASE_URL", "https://api.groq.com").rstrip("/")
-    return f"{base}/openai/v1/chat/completions"
-
-
 def _media_type(data: bytes) -> str:
     if data[:3] == b"\xff\xd8\xff":
         return "image/jpeg"
@@ -106,35 +114,11 @@ def _media_type(data: bytes) -> str:
 
 
 async def _vision_call(image: bytes) -> dict:
-    data_url = f"data:{_media_type(image)};base64,{base64.b64encode(image).decode()}"
-    body = {
-        "model": _model_name(),
-        "max_tokens": 1500,
-        "temperature": 0,
-        "response_format": {"type": "json_object"},
-        "messages": [{"role": "user", "content": [
-            {"type": "text", "text": PROMPT},
-            {"type": "image_url", "image_url": {"url": data_url}},
-        ]}],
-    }
-    headers = {"Authorization": f"Bearer {settings.groq_api_key}"}
-    async with httpx.AsyncClient(timeout=60) as client:
-        for attempt in range(1, 6):
-            res = await client.post(_endpoint(), json=body, headers=headers)
-            if res.status_code in (429, 500, 502, 503, 504) and attempt < 5:
-                await asyncio.sleep(min(2 ** attempt, 20) + random.random())
-                continue
-            res.raise_for_status()
-            payload = res.json()
-            usage = payload.get("usage") or {}
-            await record_usage(
-                "image_analysis",
-                input_tokens=usage.get("prompt_tokens", 0),
-                output_tokens=usage.get("completion_tokens", 0),
-                latency_ms=int(res.elapsed.total_seconds() * 1000),
-            )
-            return json.loads(payload["choices"][0]["message"]["content"])
-    raise AssertionError("unreachable")
+    """Retries and token accounting come from `run_agent`, as for every agent."""
+    result = await run_agent(
+        vision_agent, [PROMPT, BinaryContent(data=image, media_type=_media_type(image))]
+    )
+    return result.output.model_dump()
 
 
 async def analyze_photo(photo: EvidencePhoto) -> DamageFinding:
