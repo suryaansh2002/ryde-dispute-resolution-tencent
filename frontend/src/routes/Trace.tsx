@@ -4,7 +4,7 @@ import type { Argument, CaseState, DamageFinding, GoldenReport, RecentCase, Usag
 import { api } from '../lib/api'
 import { CAT_FULL, day, money, outcomeLabel, secs, statusPill } from '../lib/format'
 import {
-  agentEvent, agentUsage, argumentOf, buildSteps, caseSeconds, errorOf, isLit, outcomeIcon,
+  agentEvent, agentUsage, argumentOf, buildSteps, caseSeconds, errorOf, gateChecks, isLit, outcomeIcon,
   photoFindings, photoToolOf, preventionOf, STEP_ICON, triageOf, type StepKey,
 } from '../lib/hearing'
 import { useEvidence, useLiveCase } from '../lib/live'
@@ -175,14 +175,7 @@ export function CaseTrace({ id }: { id: string }) {
   const failed = errorOf(events)
   const evRefs = ev ? Object.keys(ev) : []
   const exhibitNo = Object.fromEntries(evRefs.map((r, i) => [r, i + 1]))
-  const gateChecks: [boolean, string, string][] | null = dec
-    ? [
-        [!dec.escalation.confidence_escalate, 'Confidence at least 0.60', dec.escalation.confidence_escalate ? `${dec.confidence.toFixed(2)}, too low to stand alone` : dec.confidence.toFixed(2)],
-        [!dec.escalation.bucket_escalate, 'Risk bucket', dec.escalation.bucket_escalate ? (dec.escalation.reasons?.find((r) => r.startsWith('bucket')) ?? '').replace(/^bucket: \w+ — /, '') : 'Not repeat, high-value or safety'],
-        [!dec.escalation.judge_requested_escalation, 'The bench’s own request', dec.escalation.judge_requested_escalation ? 'The Judge asked for a person' : 'Not requested'],
-        [!dec.escalation.compliance_veto, 'Compliance', dec.escalation.compliance_veto ? dec.escalation.compliance_veto : 'Remedy matches the policy'],
-      ]
-    : null
+  const checks = dec ? gateChecks(dec) : null
   const party = (role: 'rider' | 'driver') => (view.complainer_role === role ? view.complainer_name : view.complainee_name)
   const counsel = (role: 'rider' | 'driver', arg: Argument, agent: string) => (
     <div className={`side ${role} counsel`}>
@@ -365,13 +358,13 @@ export function CaseTrace({ id }: { id: string }) {
             </div>
           </div>
         )}
-        {visible('gates') && gateChecks && (
+        {visible('gates') && checks && (
           <div className="step rule">
             <span className="step-ic"><Icon name="check" size={18} /></span>
             <div className="step-body">
               <div className="step-title"><h3>Final checks</h3><span className="tag rule">Plain code, no AI</span></div>
               <div className="checks">
-                {gateChecks.map(([ok, t, s]) => (
+                {checks.map(([ok, t, s]) => (
                   <div key={t} className={`check-row ${ok ? 'pass' : 'flag'}`}>
                     <span className="ci"><Icon name={ok ? 'check' : 'alert'} size={13} stroke={2.6} /></span>
                     <div><strong>{t}</strong><small>{s}</small></div>

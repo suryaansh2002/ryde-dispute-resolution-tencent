@@ -1,4 +1,4 @@
-import type { AgentName, Argument, CaseState, Category, DamageFinding, TraceEvent, TriageResult, UsageRow } from '../types/api'
+import type { AgentName, Argument, CaseState, Category, DamageFinding, DecisionObject, TraceEvent, TriageResult, UsageRow } from '../types/api'
 import { secondsBetween, secs } from './format'
 
 // The case as a hearing, derived from its trace events. Works on a finished case and on
@@ -172,4 +172,22 @@ export const STEP_EXPLAIN: Partial<Record<StepKey, string>> = {
   hearing: 'Two counsel argue in parallel from the identical exhibits.',
   judge: 'The bench rules from the arguments and exhibits, citing every finding.',
   gates: 'Plain-code checks decide whether the ruling can stand without a person.',
+}
+
+/** The four plain-code checks a ruling has to pass to stand without a person:
+ * [passed, name, detail]. */
+export function gateChecks(dec: DecisionObject): [boolean, string, string][] {
+  const e = dec.escalation
+  return [
+    [!e.confidence_escalate, 'Confidence at least 0.60', e.confidence_escalate ? `${dec.confidence.toFixed(2)}, too low to stand alone` : dec.confidence.toFixed(2)],
+    [!e.bucket_escalate, 'Risk bucket', e.bucket_escalate ? (e.reasons?.find((r) => r.startsWith('bucket')) ?? '').replace(/^bucket: \w+ — /, '') : 'Not repeat, high-value or safety'],
+    [!e.judge_requested_escalation, 'The bench’s own request', e.judge_requested_escalation ? 'The Judge asked for a person' : 'Not requested'],
+    [!e.compliance_veto, 'Compliance', e.compliance_veto ? e.compliance_veto : 'Remedy matches the policy'],
+  ]
+}
+
+/** The opening sentence of an argument or finding, for one-line previews. */
+export function firstSentence(text: string, max = 200) {
+  const s = text.split(/(?<=[.!?])\s+(?=[A-Z“"(])/)[0]?.trim() ?? text
+  return s.length > max ? `${s.slice(0, max - 1).trimEnd()}…` : s
 }

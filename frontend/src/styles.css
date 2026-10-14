@@ -534,3 +534,29 @@ button.btn-quiet { border: 0; }
 @media (max-width: 980px) { .console.docket-layout { grid-template-columns: minmax(0, 1fr); } .console.docket-layout .case-list { max-height: 320px; } }
 /* The popover lives inside the chip or footnote button; don't inherit their type. */
 .popover { line-height: 1.47; font-size: 14px; font-weight: 400; font-family: var(--font); color: var(--ink); text-align: left; vertical-align: baseline; white-space: normal; letter-spacing: 0; }
+
+/* ---------- street maps (Leaflet + OneMap tiles) ---------- */
+/* Leaflet stacks its panes at z-index 400+; keep them inside the map so they never sit
+   above the top bar, the drawer or popovers. */
+.trip-map { position: relative; z-index: 0; isolation: isolate; background: var(--map); font: inherit; }
+.trip-map .leaflet-control-attribution { font-size: 9px; background: color-mix(in srgb, var(--surface) 80%, transparent); color: var(--ink-3); }
+.trip-map .leaflet-control-attribution a { color: var(--ink-3); }
+.trip-map .leaflet-control-zoom a { color: var(--ink); }
+.map-label { background: var(--surface); color: var(--ink); border: 0; border-radius: 6px; box-shadow: 0 1px 4px rgb(0 0 0 / 18%); font: 600 11px var(--font); padding: 2px 6px; }
+.map-label::before { display: none; }
+.map-label.warn { color: var(--warn); }
+
+/* ---------- demo panel: expandable steps ---------- */
+.dp-toggle { border: 0; background: none; padding: 3px 0 0; text-align: left; display: flex; align-items: flex-start; gap: 6px; font: inherit; color: inherit; cursor: pointer; }
+.dp-toggle small { flex-basis: 100%; }
+.dp-toggle { flex-wrap: wrap; }
+.dp-toggle > svg { margin-top: 3px; color: var(--ink-4); transition: transform .15s; }
+.dp-toggle:hover > svg { color: var(--ink-2); }
+.dp-row.open .dp-toggle > svg { transform: rotate(90deg); }
+.dp-more { grid-column: 2 / -1; display: flex; flex-direction: column; gap: 8px; margin: 2px 0 6px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--hair); font-size: 13px; line-height: 1.5; color: var(--ink-2); min-width: 0; overflow-wrap: anywhere; }
+.dp-more .dp-meta { font-size: 12px; color: var(--ink-4); }
+.dp-cites { display: flex; flex-wrap: wrap; gap: 2px; }
+.dp-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.dp-checks li { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: baseline; }
+.dp-checks li.pass > svg { color: var(--good); }
+.dp-checks li.flag > svg { color: var(--warn); }
