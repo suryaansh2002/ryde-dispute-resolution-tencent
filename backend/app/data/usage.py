@@ -7,6 +7,9 @@ write is logged and dropped.
 
 import contextvars
 import logging
+from typing import Any
+
+import asyncpg
 
 from app.config import settings
 from app.data.db import get_connection
@@ -49,3 +52,14 @@ async def record_usage(
             await conn.close()
     except Exception:  # noqa: BLE001 — accounting must never fail a case
         log.exception("failed to record LLM usage for %s/%s", case_id, agent)
+
+
+async def list_case_usage(conn: asyncpg.Connection, case_id: str) -> list[dict[str, Any]]:
+    """Every model call recorded against one case, oldest first."""
+    rows = await conn.fetch(
+        """SELECT agent, model, input_tokens, output_tokens, requests, tool_calls, latency_ms,
+                  created_at
+           FROM llm_usage WHERE case_id = $1 ORDER BY created_at, id""",
+        case_id,
+    )
+    return [dict(r) for r in rows]

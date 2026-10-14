@@ -122,3 +122,68 @@ def test_ratify_endpoint_maps_errors(stored, monkeypatch):
         "remedy": {"type": "no_show_fee_waiver", "amount": 50},
     })
     assert bad.status_code == 422
+
+
+@pytest.fixture
+def prep(monkeypatch):
+    from datetime import UTC, datetime
+
+    from tests.test_evidence_collection import make_bundle
+
+    record = {"saved": [], "traced": [], "states": []}
+    case = {"id": "CASE-0009", "state": "safety_bypassed", "category": "safety_incident",
+            "trip_id": "TRIP-0001", "complainer_id": "USER-0001",
+            "complainee_id": "USER-0002", "case_file": None, "updated_at": None}
+    bundle = make_bundle()
+    bundle.trip.update(rider_id="USER-0001", driver_id="USER-0002")
+    bundle.evidence = []
+
+    async def save(conn, case_id, case_file):
+        record["saved"].append(case_file)
+        case["case_file"] = case_file.model_dump_json()
+        return True
+
+    async def trace(conn, case_id, kind, **kw):
+        record["traced"].append((kind, kw))
+        return type("Event", (), {"t": datetime(2026, 10, 14, tzinfo=UTC)})()
+
+    async def update_case(*args, **kw):
+        record["states"].append(kw)
+
+    monkeypatch.setattr(l2, "get_connection", _async(FakeConn()))
+    monkeypatch.setattr(l2, "get_case_row", lambda conn, cid: _async(dict(case))())
+    monkeypatch.setattr(l2, "fetch_trip_bundle", _async(bundle))
+    monkeypatch.setattr(l2, "save_case_file_if_absent", save)
+    monkeypatch.setattr(l2, "record_trace_event", trace)
+    monkeypatch.setattr(l2, "update_case", update_case)
+    monkeypatch.setattr(l2, "first_trace_time",
+                        _async(datetime(2026, 10, 14, tzinfo=UTC)))
+    return case, record
+
+
+def test_prepare_assembles_evidence_once_without_changing_state(prep):
+    case, record = prep
+    client = TestClient(app)
+    first = client.post("/l2/cases/CASE-0009/prepare")
+    assert first.status_code == 200
+    body = first.json()
+    assert body["case_id"] == "CASE-0009" and body["prepared_at"].startswith("2026-10-14")
+    assert {"PAYMENT", "GPS-TRACE", "MSG-0001", "PROFILE-COMPLAINER"} <= set(body["evidence"])
+    assert record["saved"][0].category == "safety_incident"
+    assert record["saved"][0].policy_tags == []
+    (kind, kw), = record["traced"]
+    assert kind == "tool_call" and kw["detail"].startswith("case file prepared")
+    assert kw.get("agent") is None
+    assert record["states"] == [] and case["state"] == "safety_bypassed"
+
+    again = client.post("/l2/cases/CASE-0009/prepare")
+    assert again.status_code == 200 and again.json()["evidence"] == body["evidence"]
+    assert len(record["saved"]) == 1 and len(record["traced"]) == 1
+
+
+def test_prepare_is_only_for_safety_reports(prep, monkeypatch):
+    case, _ = prep
+    case["state"] = "escalated"
+    assert TestClient(app).post("/l2/cases/CASE-0009/prepare").status_code == 409
+    monkeypatch.setattr(l2, "get_case_row", _async(None))
+    assert TestClient(app).post("/l2/cases/CASE-0009/prepare").status_code == 404

@@ -85,19 +85,34 @@ async def store_response(case_id: str, respondent_id: str, text: str) -> None:
         await conn.close()
 
 
+def _adjudicable(case_id: str, case: dict | None) -> tuple[CaseState, CaseFile]:
+    if case is None:
+        raise CaseNotFound(case_id)
+    state = CaseState(case["state"])
+    if state not in _ADJUDICABLE:
+        raise AdjudicationRejected(f"case is {state}, which can't be adjudicated")
+    case_file = load_case_file(case)
+    if case_file is None:
+        raise AdjudicationRejected("case has no assembled case file")
+    return state, case_file
+
+
+async def check_adjudicable(case_id: str) -> None:
+    """The same preconditions `adjudicate` enforces, checked without running it, so a
+    background run can be refused before the request returns."""
+    conn = await get_connection()
+    try:
+        _adjudicable(case_id, await get_case_row(conn, case_id))
+    finally:
+        await conn.close()
+
+
 async def adjudicate(case_id: str) -> AdjudicationResult:
     current_case_id.set(case_id)  # attributes every model call below to this case
     conn = await get_connection()
     try:
         case = await get_case_row(conn, case_id)
-        if case is None:
-            raise CaseNotFound(case_id)
-        state = CaseState(case["state"])
-        if state not in _ADJUDICABLE:
-            raise AdjudicationRejected(f"case is {state}, which can't be adjudicated")
-        case_file = load_case_file(case)
-        if case_file is None:
-            raise AdjudicationRejected("case has no assembled case file")
+        state, case_file = _adjudicable(case_id, case)
 
         sm = CaseStateMachine(case_id=case_id, state=state, emit=trace_emitter(conn))
         if state == CaseState.AWAITING_RESPONSE:

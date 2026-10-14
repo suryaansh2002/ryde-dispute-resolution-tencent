@@ -1,6 +1,8 @@
 # RydeResolve — System Design & Architecture
 
-**Status:** v14 (2026-10-11): brings the doc in line with what's built. Changes:
+**Status:** v15 (2026-10-14): adds the read endpoints the redesigned party screens use (trip detail, plain-language outcome, full trace, token usage, featured hearing) and the L2 "Prepare case file" action for safety reports (§4, step 10 in §6). Nothing else changed.
+
+v14 (2026-10-11): brings the doc in line with what's built. Changes:
 - Image Analysis runs once per photo after evidence assembly; the advocates' tool reads the stored finding (§6).
 - Policy facts and fixed dollar amounts are computed in code (§6.4).
 - `llm_usage` added to the data layer (§5).
@@ -100,7 +102,7 @@ Four moving services: the **client** (static bundle on Vercel, renders personas 
 | Rider panel | `/rider/:caseId?` | File a claim, evidence upload, live case status, redacted view of the other side's response, final decision document | REST (submit claim, fetch case) + SSE (status/trace push) |
 | Driver panel | `/driver/:caseId?` | Redacted allegation view, response composer, evidence upload, decision document | REST + SSE |
 | System trace panel | `/trace/:caseId?` | Live timeline of every agent start/finish, state transition, rule evaluation — **including the actual text each advocate argued and the Judge's reasoning**, not just event names | SSE primarily |
-| L2 console | `/l2` | Queue of safety-bypassed cases with assembled files, human ratification action | REST (fetch queue, submit ratification) + SSE (new-case alerts) |
+| L2 console | `/l2` | Queue of escalated and safety-bypassed cases, "Prepare case file" for safety reports (evidence only), human ratification action | REST (fetch queue, submit ratification) + SSE (new-case alerts) |
 
 **Why one app, not four deployables:** the demo's argument is *symmetry* — the same guarantees landing on both sides of a dispute at once. That only reads if all panels are driven from one shared SSE stream keyed on `case_id`, which is simpler as route-scoped views in one app than as separately deployed clients needing their own sync layer.
 
@@ -138,20 +140,27 @@ flowchart LR
 
 | Endpoint | Method | Purpose |
 |---|---|---|
+| `/intake/triage` | POST | The intake chat's reply: runs the Triage agent on the person's words before anything is filed. Advisory only; filing runs Triage again in the pipeline, so the client can't set the category or safety flag |
 | `/cases` | POST | File a new claim → creates case, triggers triage |
 | `/cases/{id}` | GET | Fetch current case snapshot |
 | `/cases/{id}/response` | POST | Respondent's answer to an allegation |
 | `/cases/{id}/evidence` | POST | Attach evidence (see §5 for where the bytes live) |
 | `/cases/{id}/decision` | GET | Fetch the decision document |
+| `/cases/{id}/adjudicate` | POST | Decide without waiting for the reply; `?background=true` returns 202 and the hearing streams on SSE |
 | `/l2/queue` | GET | Safety-bypassed cases awaiting human ratification |
 | `/l2/cases/{id}/ratify` | POST | Human ratification action |
+| `/l2/cases/{id}/prepare` | POST | "Prepare case file" for a safety report: assembles the evidence in code (no agent, no model call, no recommendation), records a trace event, leaves the state at `safety_bypassed`. Idempotent; 409 for any other state |
 | `/cases/{id}/adjudicate` | POST | Run the hearing now, without waiting for a response (demo shortcut; also used by the golden run) |
-| `/cases/{id}/view` | GET | Case summary for the party pages: names, claim text, response |
+| `/cases/{id}/view` | GET | Case summary for the party pages: names, claim text, response, trip times and fare, whether a case file exists |
+| `/cases/{id}/outcome?for=rider\|driver` | GET | What happened, in plain words, for one party: headline, facts from the evidence, the rule, where the money goes. Written in code from the state, decision and evidence index (`app/orchestrator/party_outcome.py`), no model call |
+| `/cases/{id}/trace` | GET | Every trace event so far, in the same shape as the SSE stream, for pages that render a finished case |
+| `/cases/{id}/usage` | GET | Token usage per model call for the case (`llm_usage`) |
+| `/trips/{id}` | GET | One trip as its parties see it before a dispute: pickup/dropoff, both routes, both parties, the receipt, any case on it (never `category_hint` or the raw GPS trace) |
 | `/cases/{id}/evidence` | GET | Every citable evidence item, keyed by the ref the agents cite (`?view=party` hides behaviour profiles) |
 | `/uploads`, `/evidence/{id}/content` | POST, GET | Pre-filing photo upload (returns kind, hash, key); a short-lived presigned link to view an evidence object |
 | `/golden-run` | POST, GET | Run the golden-case suite for real (background); report pass rate, routing and per-case results |
 | `/stats`, `/policy/{id}` | GET | Live numbers for the landing page; one policy section's clauses, for reading a cited policy in full |
-| `/demo/personas`, `/demo/scenario`, `/demo/sample-photo`, `/users/{id}/trips`, `/users/{id}/cases` | GET | Demo navigation: no login, a persona picker over the synthetic users, one-click scenarios, synthetic damage photos |
+| `/demo/personas`, `/demo/scenario`, `/demo/featured`, `/demo/sample-photo`, `/users/{id}/trips`, `/users/{id}/cases` | GET | Demo navigation: no login, a persona picker over the synthetic users, one-click scenarios (`?role=` picks the filer), the decided case whose hearing the landing page shows, synthetic damage photos |
 | `/events/cases/{id}` | GET (SSE) | Live trace + state-transition stream for one case (`text/event-stream`; rider, driver, and trace panel all subscribe here) |
 | `/events/l2` | GET (SSE) | New-case alerts for the L2 queue, decoupled from any single `case_id` |
 
@@ -275,7 +284,7 @@ Cut any one of the five and a specific guarantee stops holding: cut Triage, and 
 7. **Escalation gate** (deterministic, two-phase — §6.1) runs unconditionally, regardless of whether the Judge called its escalate tool mid-run: checks `decision.confidence` against a threshold, and checks the case's bucket classification. Either check failing routes to the L2 queue.
 8. If cleared: `compliance_check(decision)` — plain Python, can veto, never author.
 9. `render_decision_document(decision)`.
-10. If escalated (from step 3's hard-stop or step 7's gate): a human reviewer at L2 ratifies, overrides, or corrects the case; that outcome — whichever path produced it — becomes the final decision document, and (once built — still parked as a nice-to-have) feeds the Learning Feedback Loop.
+10. If escalated (from step 3's hard-stop or step 7's gate): a human reviewer at L2 ratifies, overrides, or corrects the case. A safety report reaches L2 with no case file, since it skipped every agent; the reviewer can run "Prepare case file" (`POST /l2/cases/{id}/prepare`), which assembles the `CaseFile` in code from the same rows and with the same assembly the Evidence Collection Agent uses, but with no agent and no model call: no policy tags, no arguments, no recommendation, and the case state doesn't change. The reviewer still decides; that outcome — whichever path produced it — becomes the final decision document, and (once built — still parked as a nice-to-have) feeds the Learning Feedback Loop.
 
 **One item stays outside this flow, deliberately: the Learning Feedback Loop.** It would log every case where L2 ratifies, overrides, or corrects an agent decision, alongside the original `DecisionObject`, and periodically surface which policy clauses or categories get overridden most — reading `trace_events`, `decisions`, and `golden_cases` after the fact, as an offline analytics job, not in the request path. It's parked as a nice-to-have, lowest build priority: fully designed, not scoped out, just deprioritized until the rest of the flow above is working end to end. Nothing else is held back this way — Fraud & Bad-Faith Detection has been dropped from the roster entirely (its repeat-filer signal is already covered by Prevention rules, step 3), and Image Analysis, Policy & Precedent retrieval, and the old standalone "Escalation Protocol" were never separate roster items in this revision to begin with — they're tools the five agents above carry, and the two-phase gate below.
 

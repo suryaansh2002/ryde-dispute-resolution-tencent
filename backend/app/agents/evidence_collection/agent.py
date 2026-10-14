@@ -106,8 +106,29 @@ def _profile(
 
 
 def _reconstruct(deps: EvidenceCollectionDeps, model_tags: list[PolicyTag]) -> CaseFile:
-    b = deps.bundle
-    assert b is not None
+    assert deps.bundle is not None
+    valid_tags = [t for t in model_tags if t.chunk_id in deps.retrieved_tags]
+    return assemble_case_file(
+        deps.bundle, case_id=deps.case_id, trip_id=deps.trip_id, category=deps.category,
+        complainer_role=deps.complainer_role, complainer_id=deps.complainer_id,
+        complainee_id=deps.complainee_id, policy_tags=valid_tags,
+    )
+
+
+def assemble_case_file(
+    b: TripBundle,
+    *,
+    case_id: str,
+    trip_id: str,
+    category: DisputeCategory,
+    complainer_role: CaseRole,
+    complainer_id: str,
+    complainee_id: str,
+    policy_tags: list[PolicyTag],
+) -> CaseFile:
+    """Builds the CaseFile from the fetched rows, in plain code. Shared by the agent run
+    (with the policy tags it retrieved) and the L2 "Prepare case file" action for safety
+    reports (no tags, no model call at all)."""
     trip = b.trip
 
     chat_log = [
@@ -132,16 +153,16 @@ def _reconstruct(deps: EvidenceCollectionDeps, model_tags: list[PolicyTag]) -> C
         if b.payment else PaymentBreakdown(base_fare=0, platform_fee=0, taxes=0, total_fare=0)
     )
     gps_trace = [GPSPoint(**p) for p in (trip.get("gps_trace") or [])]
-
-    valid_tags = {t.chunk_id: t for t in model_tags if t.chunk_id in deps.retrieved_tags}
+    # One tag per chunk: a model may attach the same clause twice.
+    unique_tags = {t.chunk_id: t for t in policy_tags}
 
     return CaseFile(
-        case_id=deps.case_id,
-        trip_id=deps.trip_id,
-        category=deps.category,
-        complainer_role=deps.complainer_role,
-        complainer_id=deps.complainer_id,
-        complainee_id=deps.complainee_id,
+        case_id=case_id,
+        trip_id=trip_id,
+        category=category,
+        complainer_role=complainer_role,
+        complainer_id=complainer_id,
+        complainee_id=complainee_id,
         trip_started_at=trip.get("scheduled_at"),
         trip_completed_at=trip.get("completed_at"),
         chat_log=chat_log,
@@ -154,14 +175,14 @@ def _reconstruct(deps: EvidenceCollectionDeps, model_tags: list[PolicyTag]) -> C
         photos=photos,
         traffic_events=b.traffic_events,
         complainer_profile=_profile(
-            deps.complainer_id, deps.complainer_role, b.complainer, b.complainer_profile
+            complainer_id, complainer_role, b.complainer, b.complainer_profile
         ),
         complainee_profile=_profile(
-            deps.complainee_id,
-            CaseRole.DRIVER if deps.complainer_role == CaseRole.RIDER else CaseRole.RIDER,
+            complainee_id,
+            CaseRole.DRIVER if complainer_role == CaseRole.RIDER else CaseRole.RIDER,
             b.complainee, b.complainee_profile,
         ),
-        policy_tags=list(valid_tags.values()),
+        policy_tags=list(unique_tags.values()),
     )
 
 

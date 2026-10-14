@@ -1,10 +1,16 @@
 """Decision fetch and manual adjudication trigger (system design §4). The golden-case
 suite endpoint lives in app/api/golden.py."""
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Response, status
 from pydantic import BaseModel
 
-from app.api.cases import AdjudicationResponse, adjudication_response
+from app.api.cases import (
+    Accepted,
+    AdjudicationResponse,
+    _accepted,
+    _run_quietly,
+    adjudication_response,
+)
 from app.data.cases import get_case_row, get_latest_decision, load_case_file
 from app.data.db import get_connection
 from app.orchestrator import adjudication
@@ -42,10 +48,24 @@ async def get_decision(case_id: str) -> DecisionResponse:
     )
 
 
-@router.post("/cases/{case_id}/adjudicate", response_model=AdjudicationResponse)
-async def adjudicate_case(case_id: str) -> AdjudicationResponse:
+@router.post("/cases/{case_id}/adjudicate", response_model=AdjudicationResponse | Accepted)
+async def adjudicate_case(
+    case_id: str, background_tasks: BackgroundTasks, response: Response, background: bool = False,
+) -> AdjudicationResponse | Accepted:
     """Adjudicate without waiting for a response: the response deadline passed, or a
-    previous run crashed mid-way and left the case in `adjudicating`."""
+    previous run crashed mid-way and left the case in `adjudicating`. With
+    `?background=true` it returns 202 at once and the hearing streams on
+    `/events/cases/{id}`; a case that can't be adjudicated is still refused up front."""
+    if background:
+        try:
+            await adjudication.check_adjudicable(case_id)
+        except adjudication.CaseNotFound as exc:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, f"no case {case_id!r}") from exc
+        except adjudication.AdjudicationRejected as exc:
+            raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+        background_tasks.add_task(_run_quietly, adjudication.adjudicate, case_id)
+        response.status_code = status.HTTP_202_ACCEPTED
+        return _accepted(case_id, "adjudicating")
     try:
         result = await adjudication.adjudicate(case_id)
     except adjudication.CaseNotFound as exc:

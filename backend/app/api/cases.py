@@ -7,18 +7,29 @@ The browser watches it happen on `/events/cases/{id}`. Without the flag they blo
 return the full result, which is what scripts and tests use.
 """
 
+import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Response, status
 from pydantic import BaseModel
 
-from app.data.cases import get_case_row, get_case_view, list_recent_cases, load_case_file
+from app.agents.triage.agent import run_triage
+from app.data.cases import (
+    get_case_row,
+    get_case_view,
+    get_latest_decision,
+    list_recent_cases,
+    load_case_file,
+)
 from app.data.db import get_connection
+from app.data.usage import list_case_usage
 from app.orchestrator import adjudication, pipeline
+from app.orchestrator.party_outcome import OutcomeInput, party_outcome
 from app.schemas import Argument, CaseFile, DecisionObject, DisputeCategory
 from app.schemas.triage import TriageResult
-from app.tools.evidence_lookup import evidence_index
+from app.sse.stream import fetch_case_events
+from app.tools.evidence_lookup import evidence_json
 
 router = APIRouter(tags=["cases"])
 log = logging.getLogger(__name__)
@@ -65,6 +76,35 @@ async def _run_quietly(fn: Callable[..., Awaitable], *args) -> None:
         await fn(*args)
     except Exception:
         log.exception("background %s failed for %s", fn.__name__, args)
+
+
+INTAKE_TRIAGE_TIMEOUT_S = 15
+
+
+class IntakeRequest(BaseModel):
+    trip_id: str
+    claim_text: str
+
+
+@router.post("/intake/triage", response_model=TriageResult)
+async def intake_triage(body: IntakeRequest) -> TriageResult:
+    """The intake chat's first reply: the Triage agent reads the person's own words before
+    anything is filed, so the chat can say what kind of dispute it heard (and route a
+    safety report straight to a person). Advisory only: filing runs Triage again inside
+    the pipeline, so nothing the client sends back can decide the category or the safety
+    flag. Not attributed to a case in `llm_usage`, since none exists yet."""
+    if not body.claim_text.strip():
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "claim_text is empty")
+    try:
+        # A chat can't wait out the full rate-limit backoff; the client falls back instead.
+        return await asyncio.wait_for(
+            run_triage(body.claim_text, body.trip_id), INTAKE_TRIAGE_TIMEOUT_S
+        )
+    except Exception as exc:
+        log.warning("intake triage failed: %r", exc)
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, "triage is unavailable right now"
+        ) from exc
 
 
 @router.get("/cases")
@@ -200,9 +240,55 @@ async def case_evidence(
     case_file = load_case_file(case)
     if case_file is None:
         return {}
-    index = evidence_index(case_file)
-    return {
-        ref: {"kind": item.kind, "data": item.data}
-        for ref, item in index.items()
-        if not (view == "party" and item.kind == "behavior_profile")
-    }
+    return evidence_json(case_file, party_view=view == "party")
+
+
+@router.get("/cases/{case_id}/trace")
+async def case_trace(case_id: str) -> list[dict]:
+    """Every trace event for the case so far, in order: the same rows, in the same shape,
+    as the SSE stream on /events/cases/{id}. For pages that render a finished case."""
+    conn = await get_connection()
+    try:
+        case = await get_case_row(conn, case_id)
+        events = await fetch_case_events(conn, case_id, 0) if case else []
+    finally:
+        await conn.close()
+    if case is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"no case {case_id!r}")
+    return events
+
+
+@router.get("/cases/{case_id}/usage")
+async def case_usage(case_id: str) -> list[dict]:
+    """Tokens per model call for this case (llm_usage), oldest first. Empty if none."""
+    conn = await get_connection()
+    try:
+        return await list_case_usage(conn, case_id)
+    finally:
+        await conn.close()
+
+
+@router.get("/cases/{case_id}/outcome")
+async def case_outcome(
+    case_id: str, viewer: str = Query(..., alias="for", pattern="^(rider|driver)$")
+) -> dict:
+    """What happened, in plain words, for the rider or the driver. Written in code from
+    the case state, the decision and the evidence (app/orchestrator/party_outcome.py):
+    no model call."""
+    conn = await get_connection()
+    try:
+        view = await get_case_view(conn, case_id)
+        case = await get_case_row(conn, case_id) if view else None
+        decision = await get_latest_decision(conn, case_id) if view else None
+    finally:
+        await conn.close()
+    if view is None or case is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"no case {case_id!r}")
+    return party_outcome(OutcomeInput(
+        case_id=case_id, state=view["state"], category=view["category"],
+        complainer_role=view["complainer_role"], complainer_name=view["complainer_name"],
+        complainee_name=view["complainee_name"], viewer=viewer,
+        decision=decision, case_file=load_case_file(case),
+        has_response=view["response"] is not None,
+        filed_at=view["created_at"], trip_completed_at=view["trip"]["completed_at"],
+    ))

@@ -3,7 +3,7 @@
 Python + FastAPI, single service on Render owning orchestration, deterministic rules, and all five `pydantic-ai` agents behind one REST+SSE API surface. See `docs/RydeResolve-System-Design.md` §4, §6.
 
 - `app/api/` — FastAPI routes, split into per-owner router modules (roadmap v3 §0) so Dev A and Dev B never edit the same file: `cases.py` + `evidence.py` (Dev A), `decisions.py` + `l2.py` + `events.py` (Dev B)
-- `app/orchestrator/` — case state machine (plain code, not an agent). Genuinely shared, built incrementally: Dev A drafts the front-half transitions Day 2, Dev B extends it with the back-half states Day 5 (roadmap v3 §0)
+- `app/orchestrator/` — party-facing outcome copy (`party_outcome.py`, behind `GET /cases/{id}/outcome?for=rider|driver`, plain code) and the case state machine (plain code, not an agent). Genuinely shared, built incrementally: Dev A drafts the front-half transitions Day 2, Dev B extends it with the back-half states Day 5 (roadmap v3 §0)
 - `app/rules/` — Prevention Rules, the two-phase escalation gate, compliance check (all deterministic, no model calls)
 - `app/agents/` — one subfolder per `pydantic_ai.Agent`: `triage/`, `evidence_collection/`, `rider_advocate/`, `driver_advocate/`, `judge/`
 - `app/tools/` — DB Query, Object Storage Fetch, Policy RAG, Evidence Lookup, Image Analysis, Prevention-Rule Bucket, Escalate-to-L2

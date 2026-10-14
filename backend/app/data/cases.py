@@ -76,6 +76,20 @@ async def save_case_file(conn: asyncpg.Connection, case_id: str, case_file: Case
     )
 
 
+async def save_case_file_if_absent(
+    conn: asyncpg.Connection, case_id: str, case_file: CaseFile
+) -> bool:
+    """Stores the case file only if the case has none yet; False if one was already there
+    (two reviewers pressing "Prepare case file" at once keep the first). Leaves
+    `updated_at` alone: preparing evidence isn't case activity, so the L2 queue order holds."""
+    row = await conn.fetchval(
+        """UPDATE cases SET case_file = $2::jsonb
+           WHERE id = $1 AND case_file IS NULL RETURNING id""",
+        case_id, case_file.model_dump_json(),
+    )
+    return row is not None
+
+
 def load_case_file(case_row: dict[str, Any]) -> CaseFile | None:
     raw = case_row.get("case_file")
     if raw is None:
@@ -261,4 +275,33 @@ async def get_case_view(conn: asyncpg.Connection, case_id: str) -> dict[str, Any
     view["response"] = (
         {"text": response["text"], "submitted_at": response["submitted_at"]} if response else None
     )
+    extra = await conn.fetchrow(_CASE_VIEW_TRIP, case_id)
+    view["trip"] = {
+        "scheduled_at": extra["scheduled_at"], "completed_at": extra["completed_at"],
+        "total_fare": float(extra["total_fare"]) if extra["total_fare"] is not None else None,
+    }
+    view["has_case_file"] = extra["has_case_file"]
     return view
+
+
+# The trip times and fare the party screens show next to the case, and whether evidence
+# has been assembled yet (safety cases have none until a reviewer prepares it).
+_CASE_VIEW_TRIP = """
+SELECT t.scheduled_at, t.completed_at, (c.case_file IS NOT NULL) AS has_case_file,
+       (SELECT p.total_fare FROM payments p WHERE p.trip_id = t.id ORDER BY p.id LIMIT 1)
+           AS total_fare
+FROM cases c JOIN trips t ON t.id = c.trip_id
+WHERE c.id = $1
+"""
+
+
+async def first_trace_time(
+    conn: asyncpg.Connection, case_id: str, kind: TraceEventKind, detail_prefix: str
+) -> datetime | None:
+    """When a given trace event was first recorded for a case, or None."""
+    return await conn.fetchval(
+        """SELECT t FROM trace_events
+           WHERE case_id = $1 AND kind = $2 AND detail LIKE $3 || '%'
+           ORDER BY id LIMIT 1""",
+        case_id, kind.value, detail_prefix,
+    )

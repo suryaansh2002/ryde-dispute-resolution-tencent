@@ -170,3 +170,13 @@ def evidence_index(case_file: CaseFile) -> dict[str, EvidenceItem]:
             ],
         })
     return index
+
+
+def evidence_json(case_file: CaseFile, *, party_view: bool = False) -> dict[str, dict]:
+    """The index as the API sends it: {ref: {kind, data}}. `party_view` leaves out both
+    behaviour profiles, since one side's record isn't shown to the other."""
+    return {
+        ref: {"kind": item.kind, "data": item.data}
+        for ref, item in evidence_index(case_file).items()
+        if not (party_view and item.kind == "behavior_profile")
+    }
