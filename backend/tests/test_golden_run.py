@@ -1,5 +1,7 @@
 """Golden-run scoring: pure function, no DB or model."""
 
+import uuid
+
 import pytest
 
 from app.orchestrator.golden_run import score
@@ -122,6 +124,7 @@ async def test_only_reruns_the_named_cases(monkeypatch):
     monkeypatch.setattr(gr, "get_connection", connect)
     monkeypatch.setattr(gr, "_load_golden", load)
     monkeypatch.setattr(gr, "_run_one", run_one)
-    await gr.run_golden(only=["G2"])
-    assert ran == ["G2"]
+    goldens[2]["id"] = uuid.UUID(int=2)  # golden ids arrive from Postgres as UUIDs
+    await gr.run_golden(only=[str(uuid.UUID(int=2))])
+    assert ran == [uuid.UUID(int=2)]
     assert cleaned == ["T2"]  # the other cases' results are left alone

@@ -7,7 +7,7 @@ Image Analysis tool has something real to look at:
 
 - none: a clean seat (for testing claims the photo doesn't support)
 - minor: a small drink spill (Policy §4, minor: spills)
-- moderate: mud and dirt stains across the cushion (moderate: stains, dirt)
+- moderate: mud smears, muddy boot prints and a dirty footwell (moderate: stains, dirt)
 - severe: vomit (severe: vomit / bodily fluids)
 
 Deterministic per (severity, seed), so a re-run produces identical bytes and hashes.
@@ -104,34 +104,43 @@ def _boot_print(d: ImageDraw.ImageDraw, x: float, y: float, colour: tuple, gap: 
 
 
 def _mud(img: Image.Image, rng: random.Random) -> None:
-    """Mud: dry dirt tracked in on boots (tread prints), clods, dust and grit across the
-    cushion and footwell, in the grey-brown of dried soil rather than a liquid's sheen."""
-    d = ImageDraw.Draw(img)
-    soil, gap = (88, 76, 60), (64, 66, 72)
-    for _ in range(9000):  # dust haze, densest where the boots went
-        x, y = rng.gauss(480, 230), rng.gauss(450, 70)
-        if 0 < x < W and 300 < y < H:
-            r = rng.uniform(0.8, 2.2)
-            shade = rng.randint(80, 118)
-            d.ellipse(
-                (x - r, y - r, x + r, y + r), fill=(shade, int(shade * 0.87), int(shade * 0.7))
+    """Mud: dark wet-brown smears dragged across the cushion, clear muddy boot prints, a
+    dirty footwell and a few splashes. Drawn as continuous smears, not loose specks: a
+    field of small brown dots reads as food crumbs (the minor tier) to a vision model."""
+    layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    # Cool grey-browns of soil: away from the warm yellow-orange the vomit tier uses.
+    mud, wet, dry = (60, 54, 46), (40, 36, 31), (98, 90, 78)
+    for _ in range(4):  # smears: a patch plus drag streaks running off it
+        cx, cy = rng.uniform(140, 820), rng.uniform(350, 480)
+        d.polygon(_blob(rng, cx, cy, rng.uniform(22, 34), points=24, jag=0.6), fill=(*mud, 215))
+        angle = rng.uniform(-0.4, 0.4)
+        for k in range(6):
+            off = (k - 2.5) * 9
+            length = rng.uniform(70, 150)
+            x0, y0 = cx + math.sin(angle) * off, cy + math.cos(angle) * off
+            d.line(
+                (x0, y0, x0 + math.cos(angle) * length, y0 + math.sin(angle) * length),
+                fill=(*rng.choice((mud, wet, dry)), 190), width=rng.randint(5, 10),
             )
+    for i in range(3):  # muddy boot prints stepping across the cushion
+        x = 220 + i * 210 + rng.uniform(-25, 25)
+        y = (360 if i % 2 else 420) + rng.uniform(-15, 15)
+        _boot_print(d, x, y, (*wet, 235), (*dry, 235))
+    # the footwell: dirt ground into the mat, kept below the cushion edge so it never
+    # reads as one pool on the seat (which is how vomit looks)
     for i in range(4):
-        x, y = 150 + i * 190 + rng.uniform(-20, 20), (330 if i % 2 else 430) + rng.uniform(-20, 20)
-        _boot_print(d, x, y, soil, gap)
-    for _ in range(45):  # clods: lit from above, shadow below
-        x, y = rng.uniform(80, 880), rng.uniform(320, 610)
-        s = rng.uniform(6, 16)
-        d.polygon(_blob(rng, x + 2, y + 3, s, points=9, jag=0.8), fill=(40, 34, 28))
-        d.polygon(_blob(rng, x, y, s, points=9, jag=0.8), fill=(104, 90, 70))
-        d.polygon(
-            _blob(rng, x - s * 0.3, y - s * 0.3, s * 0.4, points=6, jag=0.5), fill=(130, 114, 90)
-        )
-    for _ in range(3):  # scuffs on the backrest
-        x, y = rng.uniform(150, 750), rng.uniform(140, 260)
-        for _k in range(160):
-            px_, py_ = x + rng.uniform(0, 130), y + rng.gauss(0, 7)
-            d.point((px_, py_), fill=soil)
+        _boot_print(d, 160 + i * 190 + rng.uniform(-20, 20), 548, (*mud, 200), (*dry, 200))
+    d.rectangle((60, 600, 900, 640), fill=(*wet, 110))
+    for _ in range(18):  # splashes: few, and larger than crumbs
+        x, y = rng.uniform(100, 860), rng.uniform(320, 620)
+        s_ = rng.uniform(7, 15)
+        d.polygon(_blob(rng, x, y, s_, points=10, jag=0.7), fill=(*wet, 200))
+    for _ in range(2):  # smudges on the backrest
+        x, y = rng.uniform(160, 720), rng.uniform(150, 250)
+        d.polygon(_blob(rng, x, y, 34, points=16, jag=0.6), fill=(*dry, 120))
+    soft = layer.filter(ImageFilter.GaussianBlur(1.6))
+    img.paste(soft, (0, 0), soft)
 
 
 def _vomit(img: Image.Image, rng: random.Random) -> None:

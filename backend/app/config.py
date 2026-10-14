@@ -43,14 +43,12 @@ class Settings(BaseSettings):
     # slugs (OpenRouter falls back server-side); for any other provider, full
     # "<provider>:<model>" strings (pydantic-ai's FallbackModel).
     agent_fallback_models: str = "deepinfra:Qwen/Qwen3.6-27B"
-    # Image Analysis: same form, but every model in its chain must accept images. Gemini
-    # Flash graded all four sample tiers right; every DeepInfra vision model tried reads the
-    # synthetic mud photo as crumbs, so DeepInfra's Gemma is the fallback, not the default.
-    # Gemini's free tier is 20 requests a day per model (one per cleaning-fee case).
-    vision_model: str = "google:gemini-3.5-flash"
-    vision_fallback_models: str = (
-        "deepinfra:google/gemma-4-31B-it-turbo,google:gemini-3.5-flash-lite"
-    )
+    # Image Analysis: same form, but every model in its chain must accept images. Gemma 4
+    # turbo on DeepInfra graded 20/20 sample photos (all four tiers) after the mud render
+    # and prompt fix on 2026-10-14, ~$0.0002 a photo with no daily cap. Gemini Flash is the
+    # fallback: as good when up, but 20 requests a day and often overloaded.
+    vision_model: str = "deepinfra:google/gemma-4-31B-it-turbo"
+    vision_fallback_models: str = "google:gemini-3.5-flash"
     # How agents return their typed result: "tool" (a final_result tool call; what the
     # golden runs used), "native" (schema-constrained JSON, only on models pydantic-ai
     # knows support it) or "prompted" (JSON in plain text, validated).
