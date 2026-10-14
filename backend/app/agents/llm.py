@@ -18,16 +18,21 @@ def _fallbacks(fallback_models: str) -> list[str]:
     return [m.strip() for m in fallback_models.split(",") if m.strip()]
 
 
-NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
+# OpenAI-compatible hosts with no pydantic-ai provider of their own: prefix → base URL,
+# API key. NVIDIA's free hosted API (build.nvidia.com) and DeepInfra (paid, per token).
+_OPENAI_COMPATIBLE = {
+    "nvidia": ("https://integrate.api.nvidia.com/v1", lambda: settings.nvidia_api_key),
+    "deepinfra": ("https://api.deepinfra.com/v1/openai", lambda: settings.deepinfra_api_key),
+}
 
 
 def _resolve(model: str) -> Model | str:
-    """"nvidia:<model id>" is NVIDIA's hosted API (build.nvidia.com), which is
-    OpenAI-compatible but has no pydantic-ai provider of its own. Every other prefix is
-    left for pydantic-ai to resolve."""
-    if model.startswith("nvidia:"):
-        provider = OpenAIProvider(base_url=NVIDIA_BASE_URL, api_key=settings.nvidia_api_key)
-        return OpenAIChatModel(model.removeprefix("nvidia:"), provider=provider)
+    """"nvidia:<model id>" and "deepinfra:<model id>" become OpenAI-compatible models on
+    those hosts; every other prefix is left for pydantic-ai to resolve."""
+    prefix, _, name = model.partition(":")
+    if prefix in _OPENAI_COMPATIBLE:
+        base_url, key = _OPENAI_COMPATIBLE[prefix]
+        return OpenAIChatModel(name, provider=OpenAIProvider(base_url=base_url, api_key=key()))
     return model
 
 

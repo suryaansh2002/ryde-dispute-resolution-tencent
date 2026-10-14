@@ -163,7 +163,9 @@ async def _run_one(golden: dict) -> dict:
     }
 
 
-async def run_golden(limit: int | None = None) -> list[dict]:
+async def run_golden(limit: int | None = None, only: list[str] | None = None) -> list[dict]:
+    """Run the labelled cases: all of them, the first `limit`, or just the golden ids in
+    `only` (rerunning a few cases leaves every other case's last result alone)."""
     if state.running:
         raise RuntimeError("a golden run is already in progress")
     state.running, state.errors = True, []
@@ -172,7 +174,16 @@ async def run_golden(limit: int | None = None) -> list[dict]:
         conn = await get_connection()
         try:
             goldens = await _load_golden(conn)
-            await _delete_cases(conn, [g["case_id"] for g in goldens if g["case_id"]])
+            if only:
+                goldens = [g for g in goldens if g["id"] in set(only)]
+            # Every case on a golden trip, not just the ones the last run recorded: a run
+            # that died partway leaves cases it never wrote back, and those would make
+            # this run's claims fail as duplicates.
+            stale = await conn.fetch(
+                "SELECT id FROM cases WHERE trip_id = ANY($1::uuid[])",
+                [g["trip_id"] for g in goldens],
+            )
+            await _delete_cases(conn, [r["id"] for r in stale])
         finally:
             await conn.close()
         goldens = goldens[:limit] if limit else goldens

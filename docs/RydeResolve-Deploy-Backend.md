@@ -15,11 +15,11 @@ When you're done, post the live URL in our chat and tick the checklist at the bo
   - Free plan, **Ohio** region. That's the same AWS region as our Neon database (us-east-2), so database queries stay local.
   - Health check on `/health`.
   - Auto-deploys when `backend/**` changes on `main`.
-- **External services the app talks to:** Neon Postgres, Neon Object Storage, Groq, Logfire. All of them already exist; you're only supplying their credentials.
+- **External services the app talks to:** Neon Postgres, Neon Object Storage, DeepInfra (the agents), Google Gemini (photos), Logfire. All of them already exist; you're only supplying their credentials.
 - **Database schema:** `backend/migrations/0001_init.sql` and `0002_llm_usage.sql`. Both are already applied to our Neon branch, so there's nothing to run unless you point the service at a *new* Neon branch or project. In that case, apply both in order first with `psql "$DATABASE_URL" -f ...`.
 - **New since the first version of this doc** (no extra setup needed; all of it ships in the image):
   - Pillow, which renders the synthetic damage photos.
-  - Image Analysis, which uses the same Groq key and model.
+  - Image Analysis, which uses Gemini Flash (`GOOGLE_API_KEY`), with DeepInfra's Gemma as fallback.
   - `POST /golden-run`.
   - The `llm_usage` table, written on every model call.
 
@@ -45,7 +45,8 @@ Render asks for each value marked `sync: false`. Copy each from the root `.env` 
 
 | Key | Where it comes from |
 |---|---|
-| `OPENROUTER_API_KEY` | `.env` (or `ANTHROPIC_API_KEY` if `AGENT_MODEL` is an `anthropic:` model) |
+| `DEEPINFRA_API_KEY` | `.env` (the agents, and the photo fallback) |
+| `GOOGLE_API_KEY` | `.env` (Gemini Flash for photos) |
 | `DATABASE_URL` | `.env` (pooled Neon URL, quotes removed) |
 | `DATABASE_URL_UNPOOLED` | `.env` (direct Neon URL, quotes removed). **Required:** the app's connections and the live-update stream use it |
 | `AWS_ACCESS_KEY_ID` | `.env` (Neon Object Storage) |
@@ -58,13 +59,13 @@ Render asks for each value marked `sync: false`. Copy each from the root `.env` 
 
 | Variable | Default | Notes |
 |---|---|---|
-| `AGENT_MODEL` | `openrouter:nvidia/nemotron-3-super-120b-a12b:free` | the five agents; e.g. `anthropic:claude-haiku-5-5` with `ANTHROPIC_API_KEY` |
-| `AGENT_FALLBACK_MODELS` | Gemma 4 31B, Nemotron Ultra (free) | OpenRouter only; tried in order when the main model errors |
-| `VISION_MODEL` / `VISION_FALLBACK_MODELS` | Gemma 4 31B, then Nemotron Nano Omni, Gemma 4 26B | Image Analysis; every model must accept images |
-| `AGENT_OUTPUT_MODE` | `prompted` | `tool` for Anthropic models; free OpenRouter models mangle tool-call output |
+| `AGENT_MODEL` | `deepinfra:Qwen/Qwen3-235B-A22B-Instruct-2507` | the five agents; 22/22 on the golden run. Prefixes: `deepinfra:`, `nvidia:`, `openrouter:`, `google:`, `anthropic:` |
+| `AGENT_FALLBACK_MODELS` | `deepinfra:Qwen/Qwen3.6-27B` | full `provider:model` strings, tried in order when the main model errors |
+| `VISION_MODEL` / `VISION_FALLBACK_MODELS` | `google:gemini-3.5-flash`, then DeepInfra Gemma 4 turbo, Gemini Flash-Lite | Image Analysis; every model must accept images. Gemini's free tier: 20 requests a day per model |
+| `AGENT_OUTPUT_MODE` / `VISION_OUTPUT_MODE` | `tool` / `prompted` | how each returns its typed result |
 | `AGENT_MAX_TOKENS` / `AGENT_EFFORT` / `AGENT_TEMPERATURE` | 16000 / `medium` / unset | effort is Anthropic-only; Claude Haiku 5.5 and Opus 5.5 reject a temperature |
 
-OpenRouter `:free` models allow 20 requests a minute and 50 a day (1000 a day once the account has bought $10 of credits); one case makes roughly 10-20 requests, and free models' shared upstream pools get rate-limited at busy times.
+DeepInfra is paid per token (about $0.012 a fully argued case on Qwen3-235B) with 200 concurrent requests per model and no daily cap. Set a spending limit on the DeepInfra account. Free tiers tried before it (OpenRouter 50 requests a day, Gemini 20, NVIDIA's queueing) couldn't run the golden suite reliably.
 
 ### 4. Wait for the first deploy
 
@@ -86,7 +87,7 @@ uv sync
 uv run python -m scripts.smoke_e2e --base-url https://<your-url>
 ```
 
-It takes about 3–5 minutes and makes real Groq calls. **Expected:**
+It takes about 5–10 minutes and makes real model calls. **Expected:**
 
 | Scenario | State | Remedy |
 |---|---|---|

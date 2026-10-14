@@ -49,7 +49,7 @@ async def test_one_case_failing_doesnt_abort_the_run(monkeypatch):
     import app.orchestrator.golden_run as gr
 
     goldens = [
-        {"id": f"G{i}", "case_id": None, "category_hint": "route_deviation",
+        {"id": f"G{i}", "case_id": None, "trip_id": f"T{i}", "category_hint": "route_deviation",
          "expected_outcome": DENIED}
         for i in range(3)
     ]
@@ -57,6 +57,9 @@ async def test_one_case_failing_doesnt_abort_the_run(monkeypatch):
     class Conn:
         async def execute(self, *args):
             pass
+
+        async def fetch(self, *args):
+            return []
 
         async def close(self):
             pass
@@ -83,3 +86,42 @@ async def test_one_case_failing_doesnt_abort_the_run(monkeypatch):
     assert [r["passed"] for r in results] == [True, False, True]
     assert "nodename" in results[1]["actual"]["error"]
     assert gr.state.done == 3 and not gr.state.running
+
+
+async def test_only_reruns_the_named_cases(monkeypatch):
+    import app.orchestrator.golden_run as gr
+
+    goldens = [
+        {"id": f"G{i}", "case_id": None, "trip_id": f"T{i}", "category_hint": "route_deviation",
+         "expected_outcome": DENIED}
+        for i in range(3)
+    ]
+    cleaned, ran = [], []
+
+    class Conn:
+        async def execute(self, *args):
+            pass
+
+        async def fetch(self, sql, trips):
+            cleaned.extend(trips)
+            return []
+
+        async def close(self):
+            pass
+
+    async def connect():
+        return Conn()
+
+    async def load(conn):
+        return goldens
+
+    async def run_one(golden):
+        ran.append(golden["id"])
+        return {"case_id": "CASE-1", "passed": True, "actual": {}}
+
+    monkeypatch.setattr(gr, "get_connection", connect)
+    monkeypatch.setattr(gr, "_load_golden", load)
+    monkeypatch.setattr(gr, "_run_one", run_one)
+    await gr.run_golden(only=["G2"])
+    assert ran == ["G2"]
+    assert cleaned == ["T2"]  # the other cases' results are left alone

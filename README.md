@@ -12,10 +12,10 @@ The **golden run** files 22 labelled cases through the full pipeline with real m
 
 | | |
 |---|---|
-| Verdicts matching the label | **22 / 22** in the latest run. Tuning progression: 14 → 19 → 21 → 21 → 22 |
+| Verdicts matching the label | **22 / 22** on Qwen3-235B (DeepInfra), 2026-10-14, on the regenerated dataset with real OneMap routes. Qwen3.6-27B also 22 / 22. Earlier tuning progression: 14 → 19 → 21 → 21 → 22 |
 | Decided with no person involved | 12 of 22. The other 10 are safety reports, high-value fees, repeat filers, and cases the Judge was unsure of |
-| Median time, claim to verdict | about 40 seconds |
-| Tokens per fully argued case | about 70–110K input and 3K output across 6 model calls. A safety report uses about 0.8K, because it stops at Triage |
+| Median time, claim to verdict | about 2.5–3 minutes per golden case on DeepInfra (it was about 40 seconds on Groq) |
+| Tokens per fully argued case | about 124K input and 2.3K output on Qwen3-235B, about $0.012 a case. A safety report uses about 0.8K, because it stops at Triage |
 
 Run it yourself from the **Accuracy** page, or with `POST /golden-run`. Per-call token usage is recorded in the `llm_usage` table.
 
@@ -67,7 +67,7 @@ Anything flagged goes to the **human review** queue, where a reviewer ratifies o
 
   It has light and dark themes. See [`frontend/README.md`](frontend/README.md).
 - **Backend:** Python + FastAPI on Render: one service owning orchestration, the deterministic rules, and all agent calls.
-- **Agents:** `pydantic-ai` via OpenRouter free models by default (Nemotron 3 Super for the agents, Gemma 4 for vision, with fallbacks); any OpenRouter or Anthropic model can be set by env var, instrumented with Pydantic Logfire (every agent run and tool call).
+- **Agents:** `pydantic-ai`; Qwen3-235B on DeepInfra by default with Qwen3.6-27B as fallback, and Gemini Flash for photos. Any DeepInfra, NVIDIA, OpenRouter, Google or Anthropic model can be set by env var, instrumented with Pydantic Logfire (every agent run and tool call).
 - **Data:** Neon Postgres + pgvector (trips, cases, trace events, decisions, golden cases, LLM usage). Evidence photos are in Neon Object Storage, in the same project.
 - **Transport:** REST for actions; Server-Sent Events for everything live, backed by Postgres `LISTEN/NOTIFY` and resumable with `Last-Event-ID`.
 
