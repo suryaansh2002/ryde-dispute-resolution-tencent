@@ -175,7 +175,7 @@ async def run_golden(limit: int | None = None, only: list[str] | None = None) ->
         try:
             goldens = await _load_golden(conn)
             if only:
-                goldens = [g for g in goldens if g["id"] in set(only)]
+                goldens = [g for g in goldens if str(g["id"]) in set(only)]
             # Every case on a golden trip, not just the ones the last run recorded: a run
             # that died partway leaves cases it never wrote back, and those would make
             # this run's claims fail as duplicates.

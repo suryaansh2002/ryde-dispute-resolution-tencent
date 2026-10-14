@@ -67,7 +67,7 @@ Anything flagged goes to the **human review** queue, where a reviewer ratifies o
 
   It has light and dark themes. See [`frontend/README.md`](frontend/README.md).
 - **Backend:** Python + FastAPI on Render: one service owning orchestration, the deterministic rules, and all agent calls.
-- **Agents:** `pydantic-ai`; Qwen3-235B on DeepInfra by default with Qwen3.6-27B as fallback, and Gemini Flash for photos. Any DeepInfra, NVIDIA, OpenRouter or Google model can be set by env var, instrumented with Pydantic Logfire (every agent run and tool call).
+- **Agents:** `pydantic-ai`; Qwen3-235B on DeepInfra by default with Qwen3.6-27B as fallback, and Gemma 4 turbo on DeepInfra for photos (Gemini Flash as fallback). Any DeepInfra, NVIDIA, OpenRouter or Google model can be set by env var, instrumented with Pydantic Logfire (every agent run and tool call).
 - **Data:** Neon Postgres + pgvector (trips, cases, trace events, decisions, golden cases, LLM usage). Evidence photos are in Neon Object Storage, in the same project.
 - **Transport:** REST for actions; Server-Sent Events for everything live, backed by Postgres `LISTEN/NOTIFY` and resumable with `Last-Event-ID`.
 

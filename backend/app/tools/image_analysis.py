@@ -41,7 +41,8 @@ Describe only what is visible. Identify the main kind of mess, if any:
 usually in one spot, often with a cup or bottle nearby
 - "food_crumbs": loose dry food bits or wrappers
 - "mud_dirt": mud, dirt, soil, muddy footprints or grime, often dry and crusty, \
-in several patches or smears
+in several patches or smears. Shoe or boot prints (an oval with tread stripes) mean \
+mud_dirt; grey-brown streaks and smears are mud, not vomit or crumbs
 - "stain": a dried stain or discoloration (paint, oil, tar, ink) without loose material
 - "vomit": a pool of liquid mixed with lumps or chunks of food, often yellowish or \
 orange, sometimes dripping or splattered. Any liquid containing food chunks is vomit.
