@@ -180,16 +180,28 @@ async def run_golden(limit: int | None = None) -> list[dict]:
         gate = asyncio.Semaphore(CONCURRENCY)
 
         async def one(golden: dict) -> dict:
-            async with gate:
-                result = await _run_one(golden)
-            conn = await get_connection()
+            # One case's failure (a network blip, a dropped connection) is that case's
+            # error, recorded like any other; it never aborts the rest of the run.
             try:
-                await conn.execute(
-                    "UPDATE golden_cases SET case_id = $2, last_run_result = $3 WHERE id = $1",
-                    golden["id"], result["case_id"], json.dumps(result),
-                )
-            finally:
-                await conn.close()
+                async with gate:
+                    result = await _run_one(golden)
+                conn = await get_connection()
+                try:
+                    await conn.execute(
+                        "UPDATE golden_cases SET case_id = $2, last_run_result = $3 WHERE id = $1",
+                        golden["id"], result["case_id"], json.dumps(result),
+                    )
+                finally:
+                    await conn.close()
+            except Exception as exc:  # noqa: BLE001 — reported per case, not raised
+                expected = golden["expected_outcome"]
+                result = {
+                    "case_id": None, "category": golden["category_hint"],
+                    "expected": {k: v for k, v in expected.items() if k != "claim_text"},
+                    "actual": {"state": None, "error": f"run failed: {exc!r}"[:300]},
+                    "passed": False, "why": "the run failed before a verdict", "seconds": 0.0,
+                    "ran_at": datetime.now(UTC).isoformat(),
+                }
             state.done += 1
             if result["actual"].get("error"):
                 state.errors.append(f"{golden['id']}: {result['actual']['error']}")

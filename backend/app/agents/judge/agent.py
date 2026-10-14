@@ -30,7 +30,9 @@ from app.schemas import (
     CaseRole,
     DecisionOutcome,
     DisputeCategory,
+    Finding,
     JudgeVerdict,
+    Remedy,
     RemedyType,
 )
 from app.tools.evidence_lookup import ROUTE_COMPARISON, evidence_index
@@ -280,11 +282,25 @@ async def validate_judge_citations(ctx: RunContext[JudgeDeps], out: JudgeVerdict
         problems.append("confidence must be between 0.0 and 1.0")
     if out.remedy.type != RemedyType.NO_ACTION and not (out.remedy.amount or 0) > 0:
         problems.append(f"remedy {out.remedy.type} needs a positive dollar amount")
-    if (
+    wrong_polarity = (
         deps.case_file.complainer_role == CaseRole.DRIVER
         and out.outcome in _UPHELD
         and out.remedy.type == RemedyType.NO_SHOW_FEE_WAIVER
-    ):
+    )
+    # An upheld no-show dispute has one remedy under POL-03: waiving exactly the fee.
+    wrong_no_show_remedy = (
+        deps.case_file.category == DisputeCategory.NO_SHOW_CHARGE
+        and deps.case_file.complainer_role == CaseRole.RIDER
+        and out.outcome in _UPHELD
+        and out.remedy.type != RemedyType.NO_SHOW_FEE_WAIVER
+        and _policy_amount(deps.case_file, RemedyType.NO_SHOW_FEE_WAIVER) is not None
+    )
+    if wrong_no_show_remedy:
+        problems.append(
+            f"an upheld no-show dispute's remedy is no_show_fee_waiver of the fee in PAYMENT, "
+            f"not {out.remedy.type}"
+        )
+    if wrong_polarity:
         problems.append(
             "the driver filed this claim, and a no_show_fee_waiver favours the rider. If the "
             "evidence favours the rider, the driver's claim is denied: outcome claim_denied, "
@@ -305,6 +321,27 @@ async def validate_judge_citations(ctx: RunContext[JudgeDeps], out: JudgeVerdict
 
     if problems and ctx.retry < min(CITATION_CORRECTION_ATTEMPTS, ctx.max_retries):
         raise ModelRetry("Fix your verdict: " + "; ".join(problems))
+    if wrong_no_show_remedy:
+        # Still the wrong remedy type after the correction attempt; the policy fixes both
+        # the type and the amount, so this is clerical too.
+        waiver = RemedyType.NO_SHOW_FEE_WAIVER
+        out = out.model_copy(update={"remedy": Remedy(
+            type=waiver, amount=_policy_amount(deps.case_file, waiver),
+            destination=_DESTINATIONS.get(waiver),
+        )})
+    if wrong_polarity:
+        # Still inverted after the correction attempt. A fee waiver on a driver's claim is
+        # a ruling for the rider, which for the driver's claim is a denial: restating it
+        # in the right polarity is clerical (like the fixed amounts above), not a new call.
+        out = out.model_copy(update={
+            "outcome": DecisionOutcome.CLAIM_DENIED,
+            "remedy": Remedy(type=RemedyType.NO_ACTION),
+            "reasoning": [*out.reasoning, Finding(
+                finding="Restated in code: the ruling favours the rider, so the driver's "
+                        "fee claim is denied (the verdict had named the rider's remedy).",
+                cites=[c for f in out.reasoning for c in f.cites][:1],
+            )],
+        })
 
     deps.stripped_cites = bad_cites
     deps.stripped_policy = bad_policy

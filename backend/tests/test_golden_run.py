@@ -43,3 +43,43 @@ def verdict(outcome, rtype, amount=None, state="decided", **extra):
 )
 def test_score(expected, actual, passed):
     assert score(expected, actual)[0] is passed
+
+
+async def test_one_case_failing_doesnt_abort_the_run(monkeypatch):
+    import app.orchestrator.golden_run as gr
+
+    goldens = [
+        {"id": f"G{i}", "case_id": None, "category_hint": "route_deviation",
+         "expected_outcome": DENIED}
+        for i in range(3)
+    ]
+
+    class Conn:
+        async def execute(self, *args):
+            pass
+
+        async def close(self):
+            pass
+
+    async def connect():
+        return Conn()
+
+    async def load(conn):
+        return goldens
+
+    async def delete(conn, ids):
+        pass
+
+    async def run_one(golden):
+        if golden["id"] == "G1":
+            raise OSError("nodename nor servname provided")
+        return {"case_id": "CASE-1", "passed": True, "actual": {}}
+
+    monkeypatch.setattr(gr, "get_connection", connect)
+    monkeypatch.setattr(gr, "_load_golden", load)
+    monkeypatch.setattr(gr, "_delete_cases", delete)
+    monkeypatch.setattr(gr, "_run_one", run_one)
+    results = await gr.run_golden()
+    assert [r["passed"] for r in results] == [True, False, True]
+    assert "nodename" in results[1]["actual"]["error"]
+    assert gr.state.done == 3 and not gr.state.running
