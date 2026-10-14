@@ -1,27 +1,27 @@
 # frontend
 
-React + Vite + TypeScript. One app with persona-scoped routes, not four separate apps (system design §3). There's no login, just a persona picker over the synthetic users.
+React + Vite + TypeScript, built from the approved prototype in [`prototype/`](../prototype) and running on the live API. Each role gets its own app, and all of them run on the same cases. There's no login: each scenario picks a synthetic persona and a trip from the demo data.
 
-| Route | View |
+| Route | App |
 |---|---|
-| `/` | Landing: the thesis, the pipeline drawn as a route line, one-click demo cases for all four categories, live numbers, persona picker |
-| `/:role/:userId` | Rider/Driver panel: disputes waiting on you, your trips ("Report an issue"), your disputes |
-| `/:role/:userId/file/:tripId` | Report a problem: category tiles, what gets checked automatically, photo drop zone. `?demo=1&category=…` pre-fills it, including a generated sample photo for damage |
-| `/:role/:userId/case/:caseId` | Case: progress stepper, "what happens next", the decision as a ruling with clickable evidence, both sides' statements. Declined cases offer a refile |
-| `/trace`, `/trace/:caseId` | System trace: live route line, stage captions, run metrics, both statements, then every agent output and gate |
-| `/insights` | Accuracy: runs the 22 golden cases for real and shows the pass rate, per-category bars, label vs verdict per case (each links to its trace), and why cases went to a person |
-| `/l2`, `/l2/:caseId` | Human review: queue table with "why a person" chips, the agents' recommendation, gate checks, ratify/override with structured reasons. Keys: J/K, A, O |
+| `/` | Overview: the rider's outcome next to the hearing behind it, both counsel's opening lines with footnoted evidence, who decides what (live queue counts), the golden-run accuracy |
+| `/rider` | Rider app in a phone frame. Scenarios file a real report on a fresh trip: Activity → trip (map and receipt) → chat intake → "Before you send" → live progress → outcome. `?case=CASE-0153` opens a case as its rider |
+| `/driver` | Driver app. Answer a report filed against you (inbox → their words → your reply), or file a cleaning fee with a photo, without one (declined, then resend), or a no-show. `?start=damage` picks the scenario, `?case=` opens a case |
+| `/support`, `/support/:caseId` | Support console: the review queue (safety first, refreshed live over `/events/l2`), evidence first, the AI's recommendation hidden until asked, approve or change with an outcome, amount and reason. Safety reports offer "Prepare case file" (evidence only, no model call). Keys: J/K, A, C |
+| `/trace`, `/trace/:caseId` | AI trace: the docket, and each case as a hearing (complaint, intake, clerk's checks, exhibits, photo examined, counsel, the bench, final checks, judgment). Live while a case runs; "Replay the hearing" for finished ones (`?replay=1`) |
+| `/accuracy` | The 22 golden cases: pass rate, per category, label vs verdict per case, and a button to run them all again |
+
+Beside each phone, the "Behind the scenes" panel shows the hearing as it happens. The party apps themselves never show the AI. When a rider's report waits for the driver's reply, the panel offers "Answer as <driver>" (opens the driver app on that case) or deciding on the records.
 
 ## Design
 
-The system is impartial ink; only the two parties wear colour: rider blue, driver magenta, a pair validated colour-blind safe in both themes. Status colours (good, warning, critical) are reserved for outcomes and always come with a label. IBM Plex Sans, Plex Sans Condensed for labels and stations, Plex Mono for IDs, money and evidence refs. On the route line, agents are circles, deterministic rules are diamonds and the human step is a rounded square. Light, dark and system themes: tokens live in `src/index.css`, and the toggle is in the top bar.
+Apple calm, single light theme for consistent recording: grey ground, white sheets, near-black ink. Colour only does jobs: violet is the rider, teal the driver, green/amber/red are outcome states, blue is links and focus. System font (SF Pro) with Geist as the fallback, Geist Mono for IDs. Every token and component style is in `src/styles.css`, ported unchanged from the prototype. The signature is the citation chip: any claim an agent makes opens the exact evidence it cites (hover previews it, click opens the drawer: chat in context, a map drawn from the trip's own coordinates, the fare, the photo, or the policy clause with a plain summary).
 
-- `src/types/api.ts`: hand-kept mirrors of the backend schemas
-- `src/lib/api.ts`: REST client. Filing and responding use the backend's `?background=true` mode, so the UI gets the case id at once and watches the rest live.
-- `src/lib/useEventStream.ts`: SSE hook; the backend replays history, then streams live, and `EventSource` resumes via `Last-Event-ID`
-- `src/lib/pipeline.ts`: derives each station's state from the trace events (drives `RouteLine` and `StatusStepper`)
-- `src/lib/evidence.tsx`: `EvidenceProvider` and `<Ref>`. Any citation opens `EvidenceDrawer` with the cited item: chat in context, a schematic map (`RouteMap`) of planned vs driven route, GPS fixes and the 100 m pickup radius, the fare, the photo, or the policy clause. The party view hides behaviour profiles
-- `src/components/Ruling.tsx`: a decision as a ruling: outcome, remedy, cited findings, policy, confidence against the 0.6 threshold, "what would change this" (from policy thresholds, not the model), and `GateChecks`
+- `src/lib/api.ts`, `src/types/api.ts`: REST client and hand-kept mirrors of the backend schemas
+- `src/lib/live.ts`: `useLiveCase`, which fetches a finished case once and streams a running one over SSE (`/events/cases/{id}`), refetching its view, usage and decision as the state moves
+- `src/lib/hearing.ts`: derives the hearing's steps from the trace events (drives the demo panel, the trace and its replay)
+- `src/components/party.tsx`: chat intake (the bot's reply comes from the real Triage agent via `POST /intake/triage`, with a keyword guess only if that call fails; filing runs Triage again inside the pipeline, so the chat's reading is advisory), live progress stages, and the outcome screen, whose copy comes from `GET /cases/{id}/outcome`
+- `src/components/evidence.tsx`: `<Cite>`, the evidence drawer, chat, receipt
 
 ## Running
 

@@ -10,6 +10,8 @@ from fastapi import APIRouter, HTTPException, Query, Response, status
 
 from app.data.db import get_connection
 from app.data.demo import (
+    featured_case_id,
+    get_trip_detail,
     list_personas,
     list_user_cases,
     list_user_trips,
@@ -24,11 +26,15 @@ router = APIRouter(tags=["demo"])
 _CATEGORIES = "^(route_deviation|no_show_charge|property_damage|safety_incident)$"
 
 
-def _user_id(user_id: str) -> uuid.UUID:
+def _uuid(value: str, what: str) -> uuid.UUID:
     try:
-        return uuid.UUID(user_id)
+        return uuid.UUID(value)
     except ValueError as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, f"no user {user_id!r}") from exc
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"no {what} {value!r}") from exc
+
+
+def _user_id(user_id: str) -> uuid.UUID:
+    return _uuid(user_id, "user")
 
 
 @router.get("/demo/personas")
@@ -71,6 +77,21 @@ async def user_cases(user_id: str) -> list[dict]:
         await conn.close()
 
 
+@router.get("/trips/{trip_id}")
+async def trip_detail(trip_id: str) -> dict:
+    """One trip as its rider and driver see it before any dispute: the map, both
+    parties, the receipt, and the case on it if there is one."""
+    tid = _uuid(trip_id, "trip")
+    conn = await get_connection()
+    try:
+        trip = await get_trip_detail(conn, tid)
+    finally:
+        await conn.close()
+    if trip is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"no trip {trip_id!r}")
+    return trip
+
+
 @router.get("/stats")
 async def stats() -> dict:
     """What the system has done so far: cases, automation rate, time to decision,
@@ -85,12 +106,13 @@ async def stats() -> dict:
 @router.get("/demo/scenario")
 async def demo_scenario(
     category: str = Query(..., pattern=_CATEGORIES),
+    role: str | None = Query(None, pattern="^(rider|driver)$"),
 ) -> dict:
-    """One unclaimed trip that fits `category`, plus who would file it. Backs the landing
-    page's "run a demo case" buttons."""
+    """One unclaimed trip that fits `category`, plus who would file it (`role` picks the
+    filer instead of the usual one). Backs the landing page's "run a demo case" buttons."""
     conn = await get_connection()
     try:
-        scenario = await pick_scenario(conn, category)
+        scenario = await pick_scenario(conn, category, role)
     finally:
         await conn.close()
     if scenario is None:
@@ -99,6 +121,16 @@ async def demo_scenario(
             f"no unclaimed {category} trips left; regenerate the demo data",
         )
     return scenario
+
+
+@router.get("/demo/featured")
+async def featured() -> dict:
+    """The case whose hearing the landing page shows, or null if none is ready yet."""
+    conn = await get_connection()
+    try:
+        return {"case_id": await featured_case_id(conn)}
+    finally:
+        await conn.close()
 
 
 @router.get("/policy/{policy_id}")

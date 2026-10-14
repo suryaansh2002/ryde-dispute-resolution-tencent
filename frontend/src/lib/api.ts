@@ -11,13 +11,19 @@ import type {
   GoldenReport,
   L2QueueItem,
   Outcome,
+  PartyOutcome,
   Persona,
   PolicyTag,
+  PreparedCaseFile,
   RecentCase,
   Stats,
   Remedy,
   Role,
+  TraceEvent,
+  TriageResult,
   Trip,
+  TripDetail,
+  UsageRow,
 } from '../types/api'
 
 export const API_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:8000').replace(/\/$/, '')
@@ -61,7 +67,19 @@ export const api = {
   userCases: (userId: string) => request<CaseSummary[]>(`/users/${userId}/cases`),
 
   stats: () => request<Stats>('/stats'),
-  scenario: (category: Category) => request<DemoScenario>(`/demo/scenario?category=${category}`),
+  scenario: (category: Category, role?: Role) =>
+    request<DemoScenario>(`/demo/scenario?category=${category}${role ? `&role=${role}` : ''}`),
+  intakeTriage: (tripId: string, claimText: string) =>
+    request<TriageResult>('/intake/triage', {
+      ...json({ trip_id: tripId, claim_text: claimText }),
+      signal: AbortSignal.timeout(10000),
+    }),
+  featured: () => request<{ case_id: string | null }>('/demo/featured'),
+  trip: (tripId: string) => request<TripDetail>(`/trips/${tripId}`),
+  trace: (caseId: string) => request<TraceEvent[]>(`/cases/${caseId}/trace`),
+  usage: (caseId: string) => request<UsageRow[]>(`/cases/${caseId}/usage`),
+  outcome: (caseId: string, viewer: Role) =>
+    request<PartyOutcome>(`/cases/${caseId}/outcome?for=${viewer}`),
   evidence: (caseId: string, view: 'operator' | 'party') =>
     request<EvidenceIndex>(`/cases/${caseId}/evidence?view=${view}`),
   policy: (policyId: string) => request<PolicyTag[]>(`/policy/${policyId}`),
@@ -91,7 +109,7 @@ export const api = {
     ),
 
   adjudicateNow: (caseId: string) =>
-    request<unknown>(`/cases/${caseId}/adjudicate`, { method: 'POST' }),
+    request<Accepted>(`/cases/${caseId}/adjudicate?background=true`, { method: 'POST' }),
 
   golden: () => request<GoldenReport>('/golden-run'),
   startGolden: () => request<{ status: string }>('/golden-run', { method: 'POST' }),
@@ -107,6 +125,8 @@ export const api = {
       remedy?: Remedy
     },
   ) => request<DecisionObject>(`/l2/cases/${caseId}/ratify`, json(body)),
+  prepareCaseFile: (caseId: string) =>
+    request<PreparedCaseFile>(`/l2/cases/${caseId}/prepare`, { method: 'POST' }),
 }
 
 export const streamUrl = {

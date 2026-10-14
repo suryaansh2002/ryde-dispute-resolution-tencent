@@ -184,6 +184,8 @@ export interface CaseView {
   complainee_id: string
   complainee_name: string
   response: { text: string; submitted_at: string } | null
+  trip?: { scheduled_at: string | null; completed_at: string | null; total_fare: number | null }
+  has_case_file?: boolean
 }
 
 export interface RecentCase {
@@ -271,6 +273,8 @@ export interface DemoScenario {
   other_party_name: string
   role: Role
   category: Category
+  completed_at?: string | null
+  total_fare?: number | null
 }
 
 export type DamageTier = 'none' | 'minor' | 'moderate' | 'severe' | 'unclear'
@@ -319,4 +323,65 @@ export interface GoldenReport {
     result: GoldenResult | null
   }[]
   status: { running: boolean; started_at: string | null; finished_at: string | null; total: number; done: number; errors: string[] }
+}
+
+export interface UsageRow {
+  agent: string
+  model: string | null
+  input_tokens: number
+  output_tokens: number
+  requests: number
+  tool_calls: number
+  latency_ms: number | null
+  created_at: string
+}
+
+export interface LineString {
+  type: 'LineString'
+  coordinates: [number, number][]
+}
+
+export interface TripDetail {
+  id: string
+  scheduled_at: string | null
+  completed_at: string | null
+  pickup: { lat: number; lng: number }
+  dropoff: { lat: number; lng: number }
+  rider: { id: string; name: string }
+  driver: { id: string; name: string }
+  payment: {
+    base_fare: number
+    platform_fee: number
+    taxes: number
+    total_fare: number
+    add_on_fees: { type: string; amount: number }[]
+  } | null
+  optimal_route: LineString | null
+  actual_route: LineString | null
+  case_id: string | null
+  case_state: CaseState | null
+}
+
+export type FactIcon =
+  | 'route' | 'alert' | 'msg' | 'info' | 'pin' | 'camera' | 'scale' | 'clock' | 'shield' | 'receipt' | 'user'
+
+export interface PartyOutcome {
+  case_id: string
+  state: CaseState
+  viewer: Role
+  viewer_side: 'complainer' | 'complainee'
+  tone: 'good' | 'warn' | 'bad' | 'neutral'
+  head: string
+  sub: string
+  facts: { icon: FactIcon; text: string }[]
+  rule: string | null
+  money: string | null
+  can_refile: boolean
+  reviewed_by_person: boolean
+}
+
+export interface PreparedCaseFile {
+  case_id: string
+  prepared_at: string
+  evidence: EvidenceIndex
 }

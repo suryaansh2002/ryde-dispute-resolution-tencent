@@ -2,6 +2,7 @@
 their cases. These are for the human using the UI to navigate. No agent ever reads
 them, so they may show `trips.category_hint`, which agents must never see."""
 
+import json
 from decimal import Decimal
 from typing import Any
 
@@ -127,14 +128,21 @@ _FILER_ROLE = {
 }
 
 
-async def pick_scenario(conn: asyncpg.Connection, category: str) -> dict[str, Any] | None:
-    """A recent, unclaimed trip designed for `category`, with the party who'd file it.
-    Safety scenarios fall back to any unclaimed trip: the claim text makes it a safety
-    case, not the trip."""
-    role = _FILER_ROLE[category]
+async def pick_scenario(
+    conn: asyncpg.Connection, category: str, role: str | None = None
+) -> dict[str, Any] | None:
+    """A recent, unclaimed trip designed for `category`, with the party who'd file it
+    (`role` overrides the usual filer, e.g. a driver claiming a no-show fee). Safety
+    scenarios fall back to any unclaimed trip: the claim text makes it a safety case,
+    not the trip."""
+    role = role or _FILER_ROLE[category]
+    if role not in ("rider", "driver"):  # interpolated into the SQL below
+        raise ValueError(f"unknown role {role!r}")
     row = await conn.fetchrow(
         f"""SELECT t.id AS trip_id, t.{role}_id AS user_id, u.display_name,
-                   other.display_name AS other_party_name, t.completed_at
+                   other.display_name AS other_party_name, t.completed_at,
+                   (SELECT p.total_fare FROM payments p WHERE p.trip_id = t.id
+                    ORDER BY p.id LIMIT 1) AS total_fare
             FROM trips t
             JOIN users u ON u.id = t.{role}_id
             JOIN users other ON other.id = t.{"driver" if role == "rider" else "rider"}_id
@@ -147,4 +155,85 @@ async def pick_scenario(conn: asyncpg.Connection, category: str) -> dict[str, An
     )
     if row is None:
         return None
-    return {**dict(row), "role": role, "category": category}
+    return {**_plain(row), "role": role, "category": category}
+
+
+# A trip as either party sees it before any dispute. Deliberately leaves out
+# `category_hint` (a generation label) and `gps_trace` (the raw feed stays in the case file).
+_TRIP_DETAIL = """
+SELECT t.id, t.scheduled_at, t.completed_at, t.pickup_lat, t.pickup_lng,
+       t.dropoff_lat, t.dropoff_lng, t.optimal_route_geometry, t.actual_route_geometry,
+       r.id AS rider_id, r.display_name AS rider_name,
+       d.id AS driver_id, d.display_name AS driver_name,
+       c.id AS case_id, c.state AS case_state
+FROM trips t
+JOIN users r ON r.id = t.rider_id
+JOIN users d ON d.id = t.driver_id
+LEFT JOIN LATERAL (
+    SELECT id, state FROM cases WHERE trip_id = t.id ORDER BY created_at DESC LIMIT 1
+) c ON true
+WHERE t.id = $1
+"""
+
+
+def _json(value: Any) -> Any:
+    return json.loads(value) if isinstance(value, str) else value
+
+
+async def get_trip_detail(conn: asyncpg.Connection, trip_id: str) -> dict[str, Any] | None:
+    """The trip-detail screen: map geometry, both parties, the receipt, and any case."""
+    row = await conn.fetchrow(_TRIP_DETAIL, trip_id)
+    if row is None:
+        return None
+    payment = await conn.fetchrow(
+        """SELECT base_fare, platform_fee, taxes, total_fare, add_on_fees
+           FROM payments WHERE trip_id = $1 ORDER BY id LIMIT 1""",
+        trip_id,
+    )
+    receipt = None
+    if payment is not None:
+        receipt = _plain(payment)
+        receipt["add_on_fees"] = [
+            {"type": f.get("type"), "amount": float(f.get("amount") or 0)}
+            for f in _json(payment["add_on_fees"]) or []
+        ]
+    return {
+        "id": str(row["id"]),
+        "scheduled_at": row["scheduled_at"],
+        "completed_at": row["completed_at"],
+        "pickup": {"lat": row["pickup_lat"], "lng": row["pickup_lng"]},
+        "dropoff": {"lat": row["dropoff_lat"], "lng": row["dropoff_lng"]},
+        "rider": {"id": str(row["rider_id"]), "name": row["rider_name"]},
+        "driver": {"id": str(row["driver_id"]), "name": row["driver_name"]},
+        "payment": receipt,
+        "optimal_route": _json(row["optimal_route_geometry"]),
+        "actual_route": _json(row["actual_route_geometry"]),
+        "case_id": row["case_id"],
+        "case_state": row["case_state"],
+    }
+
+
+# The landing page's featured hearing: a decided case where both advocates actually
+# argued. Prefers an automatic Route Deviation decision (the clearest one to watch), then
+# falls back to any decided case with both arguments.
+_FEATURED = """
+SELECT c.id FROM cases c
+JOIN LATERAL (
+    SELECT human_ratified, outcome FROM decisions WHERE case_id = c.id
+    ORDER BY created_at DESC LIMIT 1
+) d ON true
+WHERE c.state = 'decided'
+  AND EXISTS (SELECT 1 FROM trace_events e WHERE e.case_id = c.id
+              AND e.kind = 'agent_output' AND e.agent = 'rider_advocate')
+  AND EXISTS (SELECT 1 FROM trace_events e WHERE e.case_id = c.id
+              AND e.kind = 'agent_output' AND e.agent = 'driver_advocate')
+-- An upheld route case shows the hearing best: a measurable detour, a refund, both
+-- counsel citing the same route comparison.
+ORDER BY (c.category = 'route_deviation' AND NOT d.human_ratified) DESC,
+         (d.outcome IN ('claim_upheld', 'claim_upheld_partial')) DESC, c.updated_at DESC
+LIMIT 1
+"""
+
+
+async def featured_case_id(conn: asyncpg.Connection) -> str | None:
+    return await conn.fetchval(_FEATURED)
