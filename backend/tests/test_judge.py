@@ -205,3 +205,34 @@ async def test_upheld_verdict_without_a_policy_gets_its_categorys():
 
     out = await validate_judge_citations(Ctx(), verdict)
     assert out.policy_applied == "POL-04"
+
+
+async def test_a_driver_claim_still_ruled_with_the_riders_remedy_is_restated_as_denied():
+    # The Judge ruled for the rider (fee waived) on a driver-filed claim, twice. After the
+    # correction attempt the verdict is restated in the driver's claim's terms.
+    from pathlib import Path
+
+    from app.schemas import CaseFile, CaseRole
+
+    files = Path(__file__).resolve().parents[1] / "data_generation" / "fixtures" / "case_files"
+    case = CaseFile.model_validate_json((files / "no_show_charge.json").read_text())
+    case = case.model_copy(update={"complainer_role": CaseRole.DRIVER})
+    with judge_agent.override(model=scripted(upheld_waiver(4.5), upheld_waiver(4.5))):
+        run = await run_judge(case, RIDER, DRIVER)
+    assert run.verdict.outcome == "claim_denied"
+    assert run.verdict.remedy.type == "no_action"
+    assert "Restated in code" in run.verdict.reasoning[-1].finding
+
+
+async def test_an_upheld_no_show_dispute_always_gets_the_fee_waiver():
+    def full_refund(info):
+        return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, {
+            "outcome": "claim_upheld",
+            "remedy": {"type": "full_refund", "amount": 12.0},
+            "reasoning": [{"finding": "driver never arrived", "cites": ["PICKUP-PROXIMITY"]}],
+            "policy_applied": "POL-03", "confidence": 0.9,
+        })])
+
+    run = await run_with(scripted(full_refund, full_refund), case="no_show_charge")
+    assert run.verdict.remedy.type == "no_show_fee_waiver"
+    assert run.verdict.remedy.amount == 4.5
