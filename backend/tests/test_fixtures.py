@@ -43,3 +43,20 @@ def test_trace_event_fixture_matches_schema(path: Path):
     for event in events:
         if event.kind == TraceEventKind.AGENT_OUTPUT:
             OUTPUT_SCHEMAS[event.agent].model_validate(event.output)
+
+
+def test_model_outputs_accept_a_nested_object_sent_as_a_json_string():
+    # NVIDIA-hosted Nemotron sends nested objects JSON-encoded; str fields are untouched.
+    from app.schemas import JudgeVerdict
+
+    verdict = JudgeVerdict.model_validate({
+        "outcome": "claim_upheld",
+        "remedy": '{"type": "partial_refund", "amount": "1.16"}',
+        "reasoning": '[{"finding": "The route was 33% longer.", "cites": ["ROUTE-COMPARISON"]}]',
+        "policy_applied": "POL-02",
+        "confidence": 0.9,
+    })
+    assert verdict.remedy.amount == 1.16
+    assert verdict.reasoning[0].cites == ["ROUTE-COMPARISON"]
+    text_field = {**verdict.model_dump(), "policy_applied": "[x]"}
+    assert JudgeVerdict.model_validate(text_field).policy_applied == "[x]"

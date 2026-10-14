@@ -94,10 +94,10 @@ def get_route(start: tuple[float, float], end: tuple[float, float]) -> dict:
 def _decode_onemap_geometry(data: dict) -> list[list[float]]:
     """OneMap's routing response encodes the route as a Google-style encoded polyline
     string in `route_geometry`. Decodes it to a plain [lng, lat] coordinate list."""
-    encoded = (
-        data["route_summary"]["route_geometry"] if "route_summary" in data
-        else data["route_geometry"]
-    )
+    # The polyline sits at the top level; `route_summary` only has distances and times.
+    # (Looking inside `route_summary` raised KeyError, which silently fell back to the
+    # synthetic straight line for every trip.)
+    encoded = data.get("route_geometry") or data["route_summary"]["route_geometry"]
     coords: list[list[float]] = []
     index = lat = lng = 0
     while index < len(encoded):

@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     # Whichever provider AGENT_MODEL names needs its key; pydantic-ai reads it from the env.
     openrouter_api_key: str = ""
     anthropic_api_key: str = ""
+    # NVIDIA's hosted API (build.nvidia.com): "nvidia:<model id>" in AGENT_MODEL. Free tier
+    # is rate-limited (~40 requests/min reported), not capped per day.
+    nvidia_api_key: str = ""
     logfire_token: str = ""
 
     database_url: str = ""
@@ -52,6 +55,10 @@ class Settings(BaseSettings):
     # models pydantic-ai knows support it) or "prompted" (JSON in plain text, validated).
     # The free OpenRouter models mangle the final_result tool call, so "prompted".
     agent_output_mode: str = "prompted"
+    # Image Analysis's own output mode; empty means the same as AGENT_OUTPUT_MODE. Lets the
+    # vision model sit on a different provider (e.g. OpenRouter's free Gemma for photos
+    # while the agents run on NVIDIA, whose hosted vision models time out on images).
+    vision_output_mode: str = ""
     # Thinking counts toward this cap on current Claude models, so keep headroom.
     agent_max_tokens: int = 16000
     # Anthropic models only: low | medium | high | xhigh | max. Ignored for others.

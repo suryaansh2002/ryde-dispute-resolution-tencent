@@ -23,12 +23,14 @@ import asyncio
 import json
 
 import logfire
-from pydantic import BaseModel, ValidationError
+from pydantic import ValidationError
 from pydantic_ai import Agent, BinaryContent
 
 from app.agents.llm import output_spec, vision_model, vision_model_settings
 from app.agents.retry import run_agent
+from app.config import settings
 from app.schemas import CaseFile, DamageFinding, EvidencePhoto
+from app.schemas.model_output import ModelOutput
 from app.tools.object_storage import get_object_bytes
 
 PROMPT = """\
@@ -49,7 +51,7 @@ Also say how much of the seat or floor it covers: "small" (one spot), "medium", 
 Give one factual sentence describing the photo, and your confidence from 0 to 1."""
 
 
-class VisionReading(BaseModel):
+class VisionReading(ModelOutput):
     """What the vision model reports; `mess_type` is checked against the vocabulary
     afterwards, so an out-of-vocabulary answer is recorded rather than retried."""
 
@@ -62,7 +64,7 @@ class VisionReading(BaseModel):
 
 vision_agent = Agent(
     vision_model(),
-    output_type=output_spec(VisionReading),
+    output_type=output_spec(VisionReading, settings.vision_output_mode or None),
     model_settings=vision_model_settings(),
     defer_model_check=True,
     name="image_analysis",
