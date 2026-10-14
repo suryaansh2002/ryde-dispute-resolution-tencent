@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     # NVIDIA's hosted API (build.nvidia.com): "nvidia:<model id>" in AGENT_MODEL. Free tier
     # is rate-limited (~40 requests/min reported), not capped per day.
     nvidia_api_key: str = ""
+    # DeepInfra (paid, per token, OpenAI-compatible): "deepinfra:<model id>".
+    deepinfra_api_key: str = ""
     logfire_token: str = ""
 
     database_url: str = ""
@@ -32,33 +34,31 @@ class Settings(BaseSettings):
     aws_region: str = ""
     object_storage_bucket: str = "ryde-resolve"
 
-    # The five agents; must support tool calling. pydantic-ai "<provider>:<model>" form,
-    # e.g. "anthropic:claude-haiku-5-5". OpenRouter ":free" models allow 20 requests/min
-    # and 50/day (1000/day once the account has bought $10 of credits); one case makes
-    # roughly 10-20 requests, and free models' shared upstream pools get rate-limited.
-    agent_model: str = "openrouter:nvidia/nemotron-3-super-120b-a12b:free"
+    # The five agents; must support tool calling. pydantic-ai "<provider>:<model>" form, or
+    # "deepinfra:"/"nvidia:" for those OpenAI-compatible hosts (app/agents/llm.py).
+    # Default: Qwen3-235B on DeepInfra (paid, ~$0.012 a case, no daily cap), 22/22 on the
+    # golden run on 2026-10-14; Qwen3.6-27B scored 22/22 too and is the fallback.
+    agent_model: str = "deepinfra:Qwen/Qwen3-235B-A22B-Instruct-2507"
     # Comma-separated models tried in order when the main one errors. For OpenRouter, bare
     # slugs (OpenRouter falls back server-side); for any other provider, full
-    # "<provider>:<model>" strings (pydantic-ai's FallbackModel), e.g. Gemini's free tier
-    # allows 5 requests/min per model, so "google:gemini-3.8-flash,google:gemini-3.5-flash-lite"
-    # spreads a case across three quotas.
-    agent_fallback_models: str = (
-        "google/gemma-4-31b-it:free,nvidia/nemotron-3-ultra-550b-a55b:free"
-    )
-    # Image Analysis: same form, but every model in its chain must accept images.
-    vision_model: str = "openrouter:google/gemma-4-31b-it:free"
+    # "<provider>:<model>" strings (pydantic-ai's FallbackModel).
+    agent_fallback_models: str = "deepinfra:Qwen/Qwen3.6-27B"
+    # Image Analysis: same form, but every model in its chain must accept images. Gemini
+    # Flash graded all four sample tiers right; every DeepInfra vision model tried reads the
+    # synthetic mud photo as crumbs, so DeepInfra's Gemma is the fallback, not the default.
+    # Gemini's free tier is 20 requests a day per model (one per cleaning-fee case).
+    vision_model: str = "google:gemini-3.5-flash"
     vision_fallback_models: str = (
-        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free,google/gemma-4-26b-a4b-it:free"
+        "deepinfra:google/gemma-4-31B-it-turbo,google:gemini-3.5-flash-lite"
     )
-    # How agents return their typed result: "tool" (a final_result tool call, pydantic-ai's
-    # default and best for Anthropic models), "native" (schema-constrained JSON, only on
-    # models pydantic-ai knows support it) or "prompted" (JSON in plain text, validated).
-    # The free OpenRouter models mangle the final_result tool call, so "prompted".
-    agent_output_mode: str = "prompted"
+    # How agents return their typed result: "tool" (a final_result tool call; what the
+    # golden runs used), "native" (schema-constrained JSON, only on models pydantic-ai
+    # knows support it) or "prompted" (JSON in plain text, validated).
+    agent_output_mode: str = "tool"
     # Image Analysis's own output mode; empty means the same as AGENT_OUTPUT_MODE. Lets the
     # vision model sit on a different provider (e.g. OpenRouter's free Gemma for photos
     # while the agents run on NVIDIA, whose hosted vision models time out on images).
-    vision_output_mode: str = ""
+    vision_output_mode: str = "prompted"
     # Thinking counts toward this cap on current Claude models, so keep headroom.
     agent_max_tokens: int = 16000
     # Anthropic models only: low | medium | high | xhigh | max. Ignored for others.
