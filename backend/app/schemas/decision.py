@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 
 from app.schemas.common import DecisionOutcome, EscalationBucket, RemedyType
+from app.schemas.model_output import ModelOutput
 
 
 class Remedy(BaseModel):
@@ -14,7 +15,7 @@ class Finding(BaseModel):
     cites: list[str]
 
 
-class JudgeVerdict(BaseModel):
+class JudgeVerdict(ModelOutput):
     """What the Judge model itself produces. The orchestrator wraps it into a
     `DecisionObject` once the deterministic escalation gate and compliance check have run —
     the model never authors `escalation` or `human_ratified` (system design §6.1, §7)."""

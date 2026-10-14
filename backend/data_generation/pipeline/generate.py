@@ -29,6 +29,7 @@ from data_generation.pipeline.fares import (
     generate_fare,
 )
 from data_generation.pipeline.geo import (
+    detour_waypoint,
     interpolate_gps_trace,
     perturb_route,
     route_length_km,
@@ -106,7 +107,10 @@ async def generate_dataset(
             extra_fraction = (
                 rng.choice(ROUTE_DEVIATION_EXTRA_FRACTIONS) if is_route_deviation else 0.0
             )
-            actual = perturb_route(optimal, extra_fraction, rng) if is_route_deviation else optimal
+            actual = (
+                _detour(pickup, dropoff, optimal, extra_fraction, rng)
+                if is_route_deviation else optimal
+            )
             # perturb_route's displacement is approximate (asking for 35% can yield ~19%), so
             # golden labels use the *measured* extra distance — the same number the agents
             # see in ROUTE-COMPARISON — not the requested one.
@@ -199,6 +203,40 @@ async def generate_dataset(
         }
     finally:
         await conn.close()
+
+
+# Offsets tried for a real-road detour, as fractions of the target: roads snap a small
+# offset back onto the same road and a large one onto a much longer one, so the length
+# isn't proportional to the offset and is searched instead.
+_DETOUR_LADDER = (0.05, 0.1, 0.2, 0.35, 0.6, 1.0, 1.6, 2.5)
+
+
+def _detour(pickup, dropoff, optimal: dict, extra_fraction: float, rng: random.Random) -> dict:
+    """The driven route of a Route Deviation trip: a real road route through a detour
+    waypoint when OneMap is reachable, else the synthetic perturbation of `optimal`. The
+    detour closest to the target extra distance is kept; golden labels use the measured
+    extra either way."""
+    if (optimal.get("properties") or {}).get("source") != "onemap":
+        return perturb_route(optimal, extra_fraction, rng)
+    base_km = route_length_km(optimal)
+    side = rng.choice([-1, 1])
+    best, best_gap = None, float("inf")
+    for step in _DETOUR_LADDER:
+        waypoint = detour_waypoint(pickup, dropoff, extra_fraction * step, side)
+        first, second = get_route(pickup, waypoint), get_route(waypoint, dropoff)
+        if any((leg.get("properties") or {}).get("source") != "onemap" for leg in (first, second)):
+            break
+        route = {
+            "type": "LineString",
+            "coordinates": first["coordinates"] + second["coordinates"][1:],
+            "properties": {"source": "onemap_detour"},
+        }
+        gap = abs(route_length_km(route) / base_km - 1 - extra_fraction)
+        if gap < best_gap:
+            best, best_gap = route, gap
+        if gap < 0.03:
+            break
+    return best or perturb_route(optimal, extra_fraction, rng)
 
 
 def _dumps(value) -> str:

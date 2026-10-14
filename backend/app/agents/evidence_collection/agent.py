@@ -26,7 +26,6 @@ unchanged.
 
 from dataclasses import dataclass, field
 
-from pydantic import BaseModel
 from pydantic_ai import Agent, ModelRetry, RunContext
 
 from app.agents.llm import agent_model, agent_model_settings, output_spec
@@ -43,6 +42,7 @@ from app.schemas import (
     PaymentBreakdown,
     PolicyTag,
 )
+from app.schemas.model_output import ModelOutput
 from app.schemas.triage import TriageResult
 from app.tools.object_storage import object_exists
 from app.tools.policy_rag import search_policy
@@ -66,7 +66,7 @@ Steps:
 """
 
 
-class PolicyTags(BaseModel):
+class PolicyTags(ModelOutput):
     policy_tags: list[PolicyTag] = []
 
 

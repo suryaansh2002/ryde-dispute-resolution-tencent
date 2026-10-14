@@ -108,3 +108,22 @@ def perturb_route(geometry: dict, extra_fraction: float, rng: random.Random) -> 
         "type": "LineString", "coordinates": new_coords,
         "properties": {"source": "synthetic_perturbation"},
     }
+
+
+def detour_waypoint(
+    start: tuple[float, float], end: tuple[float, float], extra_fraction: float, side: int,
+) -> tuple[float, float]:
+    """A point off to one side of the straight start→end line, far enough that going
+    through it adds roughly `extra_fraction` to the trip. Routing pickup → waypoint →
+    dropoff on real roads then gives a detour a real driver could have taken. `side` (±1)
+    picks which side of the line."""
+    (lat1, lng1), (lat2, lng2) = start, end
+    dx, dy = lng2 - lng1, lat2 - lat1
+    length = max(sqrt(dx * dx + dy * dy), 1e-9)
+    # Two legs of a triangle with half-base L/2 and height h are 2*sqrt((L/2)^2 + h^2),
+    # so h = (L/2) * sqrt((1 + e)^2 - 1) adds a fraction e of the straight-line length.
+    h = (length / 2) * sqrt((1 + extra_fraction) ** 2 - 1)
+    return (
+        (lat1 + lat2) / 2 + side * (dx / length) * h,
+        (lng1 + lng2) / 2 - side * (dy / length) * h,
+    )
