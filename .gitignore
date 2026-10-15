@@ -17,3 +17,9 @@ venv/
 
 # Impeccable design skill: the engine binary is downloaded on first use; the hook cache is per machine
 .impeccable/hook.cache.json
+
+# Secrets: never committed. Each machine keeps its own .env (see the deploy guide for
+# the variables); only the example files are tracked.
+.env
+.env.*
+!.env.example
