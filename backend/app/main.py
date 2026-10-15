@@ -42,6 +42,9 @@ app.include_router(demo.router)
 app.include_router(golden.router)
 
 
-@app.get("/health")
+# HEAD too: uptime monitors (UptimeRobot's default) ping with HEAD to keep Render's free
+# instance awake, and FastAPI doesn't add HEAD to GET routes. No DB or model call here,
+# so a ping every few minutes costs nothing.
+@app.api_route("/health", methods=["GET", "HEAD"])
 async def health() -> dict:
     return {"status": "ok"}
