@@ -44,7 +44,7 @@ Then apply `migrations/0002_llm_usage.sql` the same way. It adds `llm_usage`, on
 The backend ships as a Docker image (`Dockerfile`), described by the Render Blueprint at the repo root (`render.yaml`): free plan, Ohio region (same AWS region as the Neon database), health check on `/health`, auto-deploy on changes under `backend/`.
 
 1. Render dashboard → **New → Blueprint** → connect GitHub and pick this repo. A private repo needs the Render GitHub app granted access to it.
-2. Render prompts for each secret. Paste the values from the root `.env` **without the surrounding quotes**: `OPENROUTER_API_KEY`, `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_ENDPOINT_URL_S3`, `AWS_REGION`, `LOGFIRE_TOKEN`.
+2. Render prompts for each secret. Paste the values from the root `.env` **without the surrounding quotes**: `DEEPINFRA_API_KEY`, `GOOGLE_API_KEY`, `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_ENDPOINT_URL_S3`, `AWS_REGION`, `LOGFIRE_TOKEN`.
 3. After the first deploy is live, verify it from `backend/` (real Groq calls, about 3–5 min, cleans up after itself):
 
 ```bash

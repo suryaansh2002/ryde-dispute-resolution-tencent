@@ -39,7 +39,7 @@ Pick the repo and branch `main`. Render reads `render.yaml` and proposes one web
 
 ### 3. Fill in the secrets
 
-Render asks for each value marked `sync: false`. Copy each from the root `.env` on `main` (`git show main:.env`).
+Render asks for each value marked `sync: false`. Copy each from your own root `.env` (it's never committed, so it isn't in git; ask a teammate for any value you don't have).
 
 > **Paste values *without* the surrounding quotes.** `.env` has `DATABASE_URL="postgresql://..."`; Render needs `postgresql://...`. A quoted database URL fails at startup with a confusing connection error.
 
