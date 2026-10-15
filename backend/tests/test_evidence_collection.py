@@ -52,6 +52,16 @@ def _no_network(monkeypatch):
     async def fake_fetch(*args, **kwargs):
         return make_bundle()
 
+    class FakeConnection:
+        async def close(self):
+            pass
+
+    async def fake_connection():
+        return FakeConnection()
+
+    # db_query opens a connection before fetching the bundle; without this the tests
+    # passed only where .env pointed DATABASE_URL at a real database.
+    monkeypatch.setattr(ec, "get_connection", fake_connection)
     monkeypatch.setattr(ec, "fetch_trip_bundle", fake_fetch)
     monkeypatch.setattr(ec, "object_exists", lambda key: True)
 
