@@ -6,7 +6,9 @@ RydeResolve settles everyday disputes between riders and drivers on a ride-haili
 
 Built for the Tencent Cloud hackathon (The Digital Native Track), with CodeBuddy and WorkBuddy.
 
-**Live demo: [ryde-dispute-resolution-tencent.vercel.app](https://ryde-dispute-resolution-tencent.vercel.app)**
+**Live demo: [ryde-dispute-resolution-tencent.vercel.app](https://ryde-dispute-resolution-tencent.vercel.app)** · Backend API: [ryde-dispute-resolution-tencent.onrender.com](https://ryde-dispute-resolution-tencent.onrender.com) ([interactive docs](https://ryde-dispute-resolution-tencent.onrender.com/docs))
+
+The backend runs on Render's free tier, which sleeps when idle. If the first page load is slow, give it about a minute to wake.
 
 **Scope.** It covers three of Ryde's four dispute categories:
 
@@ -23,6 +25,7 @@ The fourth category, **Safety Incidents**, always goes straight to a person. No 
 | | |
 |---|---|
 | Live demo | [ryde-dispute-resolution-tencent.vercel.app](https://ryde-dispute-resolution-tencent.vercel.app) |
+| Backend API | [ryde-dispute-resolution-tencent.onrender.com](https://ryde-dispute-resolution-tencent.onrender.com), with interactive docs at [`/docs`](https://ryde-dispute-resolution-tencent.onrender.com/docs) |
 | Cover image | [`submission/cover.png`](submission/cover.png) |
 | Architecture deck | [`submission/architecture.pptx`](submission/architecture.pptx): 8 slides covering the pipeline, permissions, citations, escalation, architecture, case lifecycle and results |
 | CodeBuddy / WorkBuddy proof | [`submission/proof/`](submission/proof): screenshots, plus all of them in one PDF |
