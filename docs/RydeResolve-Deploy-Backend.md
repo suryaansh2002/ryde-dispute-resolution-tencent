@@ -42,7 +42,7 @@ Render asks for each value marked `sync: false`. Take each from your own root `.
 | `AWS_REGION` | `.env` |
 | `LOGFIRE_TOKEN` | `.env` |
 
-`CORS_ORIGINS` is pre-set to `*` by the Blueprint, so leave it. Model settings have working defaults in `backend/app/config.py`; add any of these as env vars to override them without a code change:
+`CORS_ORIGINS` is pre-set by the Blueprint to the Vercel frontend, `https://ryde-dispute-resolution-tencent.vercel.app`, so leave it. Model settings have working defaults in `backend/app/config.py`; add any of these as env vars to override them without a code change:
 
 | Variable | Default | Notes |
 |---|---|---|
@@ -108,7 +108,7 @@ The frontend (`frontend/`, React + Vite) is built and was tested end to end in a
 2. **Root Directory:** `frontend`. Framework preset: **Vite** (detected automatically). Build command `npm run build` and output `dist` are the defaults.
 3. **Environment variable:** `VITE_API_URL` = the Render URL from Part 1, e.g. `https://ryde-resolve-api-xxxx.onrender.com` with no trailing slash. It's baked in at build time, so if you change it later, redeploy.
 4. Deploy. `frontend/vercel.json` already rewrites every path to `index.html`, so deep links like `/trace/CASE-0001` load directly.
-5. Back on Render, set `CORS_ORIGINS` to the Vercel URL (e.g. `https://ryde-resolve.vercel.app`) and let it redeploy. Until then `*` works.
+5. On Render, make sure `CORS_ORIGINS` is the Vercel URL, `https://ryde-dispute-resolution-tencent.vercel.app` (the Blueprint sets it; a service created by hand needs it added under **Environment**). Only that origin can call the API from a browser; comma-separate to add more.
 6. **Walk the golden path in a browser** on the Vercel URL:
    1. **Overview** → under *Run a demo case*, click **The long way round**. It picks a suitable trip, signs you in as the rider, and pre-fills the report.
    2. **Submit report**. The case page shows a progress stepper; after about 20 seconds it reaches *Awaiting response*.

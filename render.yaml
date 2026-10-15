@@ -38,6 +38,7 @@ services:
         sync: false
       - key: LOGFIRE_TOKEN
         sync: false
-      # Set to the frontend URL (e.g. the Vercel deployment) to restrict cross-origin calls.
+      # Only the Vercel frontend may call the API from a browser. Comma-separate to add
+      # more origins (e.g. http://localhost:5173 to point a local frontend at Render).
       - key: CORS_ORIGINS
-        value: "*"
+        value: https://ryde-dispute-resolution-tencent.vercel.app
