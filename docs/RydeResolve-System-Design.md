@@ -68,7 +68,7 @@ flowchart TB
     end
 
     subgraph External["External services"]
-        Groq["Groq API\n(agent inference)"]
+        Models["DeepInfra: Qwen3-235B agents,\nGemma 4 vision; Google Gemini\n(photo fallback)"]
         Logfire["Pydantic Logfire\n(agent span instrumentation)"]
     end
 
@@ -77,7 +77,7 @@ flowchart TB
     API --> Orch
     Orch --> Rules
     Orch --> Agents
-    Agents --> Groq
+    Agents --> Models
     Agents -.->|auto-instrumented spans| Logfire
     Agents -->|tool call: retrieve policy| PG
     Orch --> PG
@@ -87,7 +87,7 @@ flowchart TB
     Orch --> SSE --> Driver
 ```
 
-Four moving services: the **client** (static bundle on Vercel, renders personas and the live trace, never talks to Groq or the DB directly), the **backend** (one container on Render owning all orchestration, rules, and agent calls behind one API/SSE surface), **Neon** as both the system of record/policy-retrieval index (Postgres + pgvector) and the one place binary evidence lives (Object Storage) — one project, one branch, so evidence and its metadata share the same lifecycle — and **Logfire** as a passive side channel — agents send it full spans automatically, but nothing in the request path depends on it or waits for it. Groq is the one external dependency actually in the hot path, isolated behind a single interface.
+Four moving services: the **client** (static bundle on Vercel, renders personas and the live trace, never talks to a model provider or the DB directly), the **backend** (one container on Render owning all orchestration, rules, and agent calls behind one API/SSE surface), **Neon** as both the system of record/policy-retrieval index (Postgres + pgvector) and the one place binary evidence lives (Object Storage) — one project, one branch, so evidence and its metadata share the same lifecycle — and **Logfire** as a passive side channel — agents send it full spans automatically, but nothing in the request path depends on it or waits for it. The model provider (DeepInfra, with Google Gemini as the photo fallback) is the one external dependency actually in the hot path, isolated behind a single interface.
 
 ---
 
@@ -125,7 +125,7 @@ flowchart LR
     A["API layer\n(FastAPI routes)"] --> B["Orchestrator\n(case state machine, plain code)"]
     B --> C["Deterministic rules\nprevention / escalation gate /\nredaction / compliance"]
     B --> D["pydantic-ai agents\n(full roster, sequenced by B)"]
-    D --> E["Groq\n(model provider)"]
+    D --> E["DeepInfra / Google Gemini\n(model providers)"]
     D --> F["Tools: DB query, object storage fetch,\npolicy RAG, evidence lookup,\nimage analysis, prevention-rule\nbucket lookup, escalate-to-L2"]
     F --> G[(Postgres + pgvector)]
     F -.->|Judge's escalate tool call\n(signal only)| C
@@ -172,7 +172,7 @@ flowchart LR
 - `Last-Event-ID` resumes a dropped connection without duplicates.
 - Background work and the stream can therefore live in different processes, and nothing is lost on restart. Because it's plain HTTP, it works through the same reverse proxies and free-tier hosting as everything else with no protocol-upgrade edge cases to worry about — the one thing to explicitly disable is response buffering/compression on that route, so events flush to the client as they're produced rather than batching.
 
-**Async execution:** agent calls are I/O-bound (Groq, pgvector), so they run as async tasks inside the FastAPI process — no separate task queue needed at this scale.
+**Async execution:** agent calls are I/O-bound (model APIs, pgvector), so they run as async tasks inside the FastAPI process — no separate task queue needed at this scale.
 
 **The six rules, enforced in code:**
 
@@ -399,7 +399,7 @@ flowchart LR
     U -->|HTTPS: REST + SSE| REN["Render web service\n(backend, free tier)"]
     VER -->|API calls| REN
     REN --> NEON[(Neon\nPostgres + pgvector + Object Storage\none project/branch, free tier)]
-    REN -->|egress| GROQ["Groq API\n(free tier)"]
+    REN -->|egress| MODELS["DeepInfra + Google Gemini\n(pay per token)"]
     REN -.->|spans, async| LOGFIRE["Pydantic Logfire\n(free tier)"]
 ```
 
@@ -415,7 +415,7 @@ Four services instead of five: Neon now covers both Postgres/pgvector and eviden
 
 **Observability — Pydantic Logfire.** Free tier, no card required at hackathon scale (§6.3). A SaaS side-channel, not a hosted service we run — nothing to deploy, just an API key in the backend's environment.
 
-**Total cost at this configuration: $0.** Groq's free tier (roughly 30 requests/min, ~6,000 tokens/min, and a daily request cap that varies by model) should absorb demo-scale traffic; if judges hammer it, adding a payment method unlocks materially higher limits at per-token pricing measured in cents per million tokens.
+**Hosting cost: $0** on these free tiers. Model calls are paid per token on DeepInfra: about US$0.012 for a fully argued case on Qwen3-235B (about 124K input and 2.3K output tokens, measured in `llm_usage`), with no daily cap.
 
 ---
 

@@ -1,6 +1,6 @@
 # frontend
 
-React + Vite + TypeScript, built from the approved prototype in [`prototype/`](../prototype) and running on the live API. Each role gets its own app, and all of them run on the same cases. There's no login: each scenario picks a synthetic persona and a trip from the demo data.
+React + Vite + TypeScript, running on the live API. Each role gets its own app, and all of them run on the same cases. There's no login: each scenario picks a synthetic persona and a trip from the demo data.
 
 | Route | App |
 |---|---|
