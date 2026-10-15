@@ -23,3 +23,7 @@ venv/
 .env
 .env.*
 !.env.example
+
+# Submission working files (form answers, cover and deck sources): local only. Tracked
+# under submission/ are just the deliverables: cover.png, architecture.pptx, proof/.
+submission/working/
