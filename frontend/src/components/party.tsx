@@ -285,7 +285,7 @@ function stagesFor(viewerSide: 'complainer' | 'complainee', other: string, categ
     ]
   const stages: Stage[] = [
     ['Report received', '', () => true],
-    ['Checking eligibility', 'Quick checks, no AI', (e) => !!preventionOf(e)],
+    ['Checking eligibility', 'Quick automatic checks', (e) => !!preventionOf(e)],
     [
       'Gathering trip records',
       category === 'property_damage' ? 'Trip, messages and the photo' : 'GPS, route, fare, messages',

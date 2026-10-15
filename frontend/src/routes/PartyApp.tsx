@@ -32,7 +32,7 @@ const SCENARIOS: Record<Role, Scenario[]> = {
   rider: [
     { key: 'route', category: 'route_deviation', title: 'The long way round', note: 'A trip whose GPS record shows a detour. Report the route.' },
     { key: 'noshow', category: 'no_show_charge', title: 'Charged for a no-show', note: 'You were charged $4.50. Report the fee.' },
-    { key: 'safety', category: 'safety_incident', title: 'Something felt unsafe', note: 'Goes straight to a person. No AI decides.' },
+    { key: 'safety', category: 'safety_incident', title: 'Something felt unsafe', note: 'Goes straight to a person on the safety team.' },
   ],
   driver: [
     { key: 'respond', respond: true, title: 'A rider reported your trip', note: 'Reply, then see the outcome from your side.' },
@@ -289,14 +289,14 @@ export function PartyApp({ role }: { role: Role }) {
 
             {!error && persona && screen === 'inbox' && (
               <Inbox
-                cases={inbox}
+                cases={inbox} name={persona.name} role={role}
                 onOpen={(c) => { setCaseId(c.id); setScreen(c.needs_my_response ? 'claim' : isFinal(c.state) ? 'outcome' : 'tracking') }}
               />
             )}
 
             {!error && persona && screen === 'trips' && (
               <Trips
-                role={role} personaId={persona.id} featured={featuredTrip}
+                role={role} personaId={persona.id} name={persona.name} featured={featuredTrip}
                 onTrip={(id) => { setTripId(id); setScreen('trip') }}
                 onCase={openCase}
               />
@@ -395,11 +395,25 @@ function OutcomeFooter({ canRefile, onRefile, onDone }: { canRefile: boolean; on
   )
 }
 
-function Inbox({ cases, onOpen }: { cases: CaseSummary[] | null; onOpen: (c: CaseSummary) => void }) {
+function AppUser({ name, role }: { name: string; role: Role }) {
+  return (
+    <div className="app-user">
+      <span className={`avatar ${role}`}>{initials(name)}</span>
+      <span>{name}</span>
+    </div>
+  )
+}
+
+function Inbox({ cases, name, role, onOpen }: {
+  cases: CaseSummary[] | null
+  name: string
+  role: Role
+  onOpen: (c: CaseSummary) => void
+}) {
   if (!cases) return <div className="app-view"><Loading /></div>
   return (
     <div className="app-view">
-      <div className="app-head"><h2>Inbox</h2></div>
+      <div className="app-head"><AppUser name={name} role={role} /><h2>Inbox</h2></div>
       <div className="app-body">
         {cases.length === 0 ? (
           <div className="sheet sheet-pad">
@@ -428,10 +442,11 @@ function Inbox({ cases, onOpen }: { cases: CaseSummary[] | null; onOpen: (c: Cas
 }
 
 function Trips({
-  role, personaId, featured, onTrip, onCase,
+  role, personaId, name, featured, onTrip, onCase,
 }: {
   role: Role
   personaId: string
+  name: string
   featured: string | null
   onTrip: (id: string) => void
   onCase: (id: string, state: CaseView['state'] | null) => void
@@ -445,7 +460,7 @@ function Trips({
   const open = (t: Trip) => (t.case_id ? onCase(t.case_id, t.case_state) : onTrip(t.id))
   return (
     <div className="app-view">
-      <div className="app-head"><h2>{role === 'rider' ? 'Activity' : 'Trips'}</h2></div>
+      <div className="app-head"><AppUser name={name} role={role} /><h2>{role === 'rider' ? 'Activity' : 'Trips'}</h2></div>
       <div className="app-body">
         {featuredTrip && (
           <div className="sheet">

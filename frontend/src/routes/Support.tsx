@@ -58,7 +58,13 @@ export function Support() {
     if (events.length) reload()
   }, [events.length, reload])
 
-  const items = (queue ?? []).filter((q) => !done.includes(q.id))
+  const pending = (queue ?? []).filter((q) => !done.includes(q.id))
+  // Safety reports newest first; flagged cases keep the backend's oldest-first order.
+  const safety = pending
+    .filter((q) => q.is_safety)
+    .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))
+  const flagged = pending.filter((q) => !q.is_safety)
+  const items = [...safety, ...flagged]
   const sel = items.find((q) => q.id === caseId) ?? items[0]
 
   const move = (dir: number) => {
@@ -88,8 +94,8 @@ export function Support() {
   }
 
   const groups: [string, L2QueueItem[]][] = [
-    ['Safety reports', items.filter((q) => q.is_safety)],
-    ['Flagged by the checks', items.filter((q) => !q.is_safety)],
+    ['Safety reports', safety],
+    ['Flagged by the checks', flagged],
   ]
 
   return (
