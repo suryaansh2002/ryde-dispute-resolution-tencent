@@ -59,7 +59,10 @@ const json = (body: unknown): RequestInit => ({
 })
 
 export const api = {
-  health: (signal?: AbortSignal) => request<{ status: string }>('/health', { signal }),
+  // Some ad and privacy blockers refuse any URL ending in /health, so a blocked probe
+  // falls back to a real data endpoint before the server counts as unreachable.
+  health: (signal?: AbortSignal) =>
+    request<unknown>('/health', { signal }).catch(() => request<unknown>('/demo/featured', { signal })),
 
   personas: (role: Role, limit = 40) =>
     request<Persona[]>(`/demo/personas?role=${role}&limit=${limit}`),
