@@ -24,10 +24,16 @@ async def lifespan(_: FastAPI):
     await close_pools()
 
 
+def cors_origins(value: str) -> list[str]:
+    """Comma-separated origins. A browser's Origin header never ends in "/", but a pasted
+    URL often does, and an exact-match miss blocks the frontend, so drop it."""
+    return [o.strip().rstrip("/") for o in value.split(",") if o.strip()]
+
+
 app = FastAPI(title="RydeResolve backend", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o.strip()],
+    allow_origins=cors_origins(settings.cors_origins),
     allow_methods=["*"],
     allow_headers=["*"],
 )
