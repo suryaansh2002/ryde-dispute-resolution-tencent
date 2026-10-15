@@ -6,6 +6,8 @@ RydeResolve settles everyday disputes between riders and drivers on a ride-haili
 
 Built for the Tencent Cloud hackathon (The Digital Native Track), with CodeBuddy and WorkBuddy.
 
+**Live demo: [ryde-dispute-resolution-tencent.vercel.app](https://ryde-dispute-resolution-tencent.vercel.app)**
+
 **Scope.** It covers three of Ryde's four dispute categories:
 
 - **Route Deviation:** the driver took a longer route than necessary.
@@ -20,6 +22,7 @@ The fourth category, **Safety Incidents**, always goes straight to a person. No 
 
 | | |
 |---|---|
+| Live demo | [ryde-dispute-resolution-tencent.vercel.app](https://ryde-dispute-resolution-tencent.vercel.app) |
 | Cover image | [`submission/cover.png`](submission/cover.png) |
 | Architecture deck | [`submission/architecture.pptx`](submission/architecture.pptx): 8 slides covering the pipeline, permissions, citations, escalation, architecture, case lifecycle and results |
 | CodeBuddy / WorkBuddy proof | [`submission/proof/`](submission/proof): screenshots, plus all of them in one PDF |

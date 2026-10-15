@@ -16,8 +16,11 @@ services:
       paths:
         - backend/**
     envVars:
-      # The key for whichever provider AGENT_MODEL names (ANTHROPIC_API_KEY for anthropic:).
-      - key: OPENROUTER_API_KEY
+      # DeepInfra runs the five agents and photo grading (AGENT_MODEL, VISION_MODEL).
+      - key: DEEPINFRA_API_KEY
+        sync: false
+      # Gemini Flash, the photo-grading fallback (VISION_FALLBACK_MODELS).
+      - key: GOOGLE_API_KEY
         sync: false
       # Model settings default in app/config.py; add AGENT_MODEL, AGENT_FALLBACK_MODELS,
       # VISION_MODEL, AGENT_OUTPUT_MODE etc. here to override without a code change.
@@ -35,6 +38,6 @@ services:
         sync: false
       - key: LOGFIRE_TOKEN
         sync: false
-      # "*" while the frontend URL doesn't exist yet; set to the Vercel URL once it does.
+      # Set to the frontend URL (e.g. the Vercel deployment) to restrict cross-origin calls.
       - key: CORS_ORIGINS
         value: "*"
