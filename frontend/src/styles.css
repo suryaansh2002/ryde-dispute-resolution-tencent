@@ -160,6 +160,8 @@ kbd { font-family: var(--font); font-size: 11px; color: var(--ink-3); background
 .app-view { flex: 1; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; }
 .app-head { padding: 6px 20px 14px; display: flex; flex-direction: column; gap: 4px; }
 .app-head h2 { font-size: 30px; letter-spacing: -0.025em; font-weight: 700; }
+.app-user { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; color: var(--ink-2); }
+.app-user .avatar { width: 26px; height: 26px; font-size: 11px; }
 .app-head .back { align-self: flex-start; display: inline-flex; align-items: center; gap: 2px; border: 0; background: none; color: var(--link); font-size: 16px; padding: 4px 0; margin-left: -6px; }
 .app-body { padding: 0 16px 24px; display: flex; flex-direction: column; gap: 14px; }
 .sheet { background: var(--surface); border-radius: 18px; overflow: hidden; }
